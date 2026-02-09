@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -41,7 +40,8 @@ public class HomeController {
             @RequestParam(name = "crop", required = false, defaultValue = "true") String crop,
             @RequestParam(name = "shadow", required = false, defaultValue = "false") String shadow,
             @RequestParam(name = "canvas", required = false, defaultValue = "transparent") String canvas,
-            @RequestParam(name = "icon", required = false, defaultValue = "false") String icon
+            @RequestParam(name = "icon", required = false, defaultValue = "false") String icon,
+            @RequestParam(name = "gif", required = false, defaultValue = "false") String gif
     ) {
 
         try {
@@ -55,6 +55,7 @@ public class HomeController {
             boolean cropImage = "1".equals(crop) || "true".equalsIgnoreCase(crop);
             String renderCanvasColour = canvas;
             boolean renderIcon = "1".equals(icon) || "true".equalsIgnoreCase(icon);
+            boolean generateGif = parseBoolean(gif);
             
             // Validate state and color
             if (renderState >= 101) {
@@ -71,14 +72,15 @@ public class HomeController {
             // Create unique filename hash
             String fileNameUnique = sprite + isSmallFurni + renderState + renderDirection + 
                                   colorId + renderShadows + renderBackground + 
-                                  renderCanvasColour + cropImage + renderIcon;
+                                  renderCanvasColour + cropImage + renderIcon + generateGif;
             String hashedUniqueName = hash(fileNameUnique);
             
             // Create export directory
             Path exportDir = Paths.get("furni_export", sprite, "export");
             Files.createDirectories(exportDir);
             
-            Path cachedImagePath = exportDir.resolve(hashedUniqueName + ".png");
+            String fileExtension = generateGif ? ".gif" : ".png";
+            Path cachedImagePath = exportDir.resolve(hashedUniqueName + fileExtension);
             
             // Check if cached image exists
             if (!Files.exists(cachedImagePath)) {
@@ -102,7 +104,8 @@ public class HomeController {
                     renderBackground,
                     renderCanvasColour,
                     cropImage,
-                    renderIcon
+                    renderIcon,
+                    generateGif
                 );
                 
                 furni.run();
@@ -126,7 +129,11 @@ public class HomeController {
                 }
                 
                 HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.IMAGE_PNG);
+                if (generateGif) {
+                    headers.setContentType(MediaType.IMAGE_GIF);
+                } else {
+                    headers.setContentType(MediaType.IMAGE_PNG);
+                }
                 
                 return ResponseEntity.ok()
                     .headers(headers)
