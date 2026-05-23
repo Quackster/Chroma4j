@@ -92,7 +92,7 @@ async function renderPackage(furni, options, canvas) {
 
 function collectRenderAssets(sprite, assetsXml, visualizationXml, images, options) {
   const size = options.small ? "32" : "64";
-  const layers = readLayers(visualizationXml, size, options.direction);
+  const layers = readLayers(visualizationXml, size, options.layerDirection ?? options.direction);
   const colorLayers = readColorLayers(visualizationXml, size, options.color);
   const animations = readAnimationFrames(visualizationXml, size, options.state);
   const candidates = [...assetsXml.getElementsByTagName("asset")].map(node => {
@@ -146,13 +146,14 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
 }
 
 function collectWithDirectionFallback(sprite, assetsXml, visualizationXml, images, options) {
+  const layerDirection = options.layerDirection ?? options.direction;
   const preferred = collectRenderAssets(sprite, assetsXml, visualizationXml, images, options);
   if (preferred.length || options.icon) {
     return preferred;
   }
   for (const direction of [0, 2, 4, 6]) {
     if (direction === options.direction) continue;
-    const fallback = collectRenderAssets(sprite, assetsXml, visualizationXml, images, { ...options, direction });
+    const fallback = collectRenderAssets(sprite, assetsXml, visualizationXml, images, { ...options, direction, layerDirection });
     if (fallback.length) {
       options.direction = direction;
       return fallback;
