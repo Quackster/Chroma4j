@@ -681,7 +681,10 @@ function parseAssetName(sprite, name, icon) {
 }
 
 function normalizeOptions(options) {
-  const direction = numeric(options.rotation ?? options.direction, 0);
+  let direction = numeric(options.direction, 0);
+  if (options.rotation !== undefined && options.rotation !== null) {
+    direction = numeric(options.rotation, direction);
+  }
   const state = numeric(options.state, 0);
   return {
     sprite: options.sprite || "",
