@@ -59,10 +59,12 @@ public class FurniExtractor {
             
             Map<Integer, String> symbolClass = new LinkedHashMap<>();
             Map<Integer, ImageTag> imageTags = new LinkedHashMap<>();
+            boolean hasSymbolClass = false;
 
             // 1) Extract SymbolClass information
             for (Tag tag : swf.getTags()) {
                 if (tag instanceof com.jpexs.decompiler.flash.tags.SymbolClassTag) {
+                    hasSymbolClass = true;
                     com.jpexs.decompiler.flash.tags.SymbolClassTag symbolClassTag =
                             (com.jpexs.decompiler.flash.tags.SymbolClassTag) tag;
 
@@ -97,6 +99,9 @@ public class FurniExtractor {
                     }
                 }
             }
+            if (!hasSymbolClass) {
+                throw new IllegalStateException("No SymbolClass tag found");
+            }
 
             // 3) Extract images
             for (Tag tag : swf.getTags()) {
@@ -129,40 +134,38 @@ public class FurniExtractor {
             
             // Process assets and handle flipH
             Document assetDocument = FileUtil.solveXmlFile(xmlDir.toString(), "assets");
-            if (assetDocument != null) {
-                NodeList assets = assetDocument.getElementsByTagName("asset");
+            NodeList assets = assetDocument.getElementsByTagName("asset");
                 
-                for (int i = 0; i < assets.getLength(); i++) {
-                    Node asset = assets.item(i);
+            for (int i = 0; i < assets.getLength(); i++) {
+                Node asset = assets.item(i);
                     
-                    Node sourceAttr = asset.getAttributes().getNamedItem("source");
-                    if (sourceAttr == null) {
-                        continue;
-                    }
+                Node sourceAttr = asset.getAttributes().getNamedItem("source");
+                if (sourceAttr == null) {
+                    continue;
+                }
                     
-                    String source = sourceAttr.getNodeValue();
-                    Node nameAttr = asset.getAttributes().getNamedItem("name");
-                    String imageName = nameAttr.getNodeValue();
+                String source = sourceAttr.getNodeValue();
+                Node nameAttr = asset.getAttributes().getNamedItem("name");
+                String imageName = nameAttr.getNodeValue();
                     
-                    String assetImage = FileUtil.solveFile(exportDir.toString(), source);
-                    String newName = imageName + ".png";
-                    Path newPath = exportDir.resolve(newName);
+                String assetImage = FileUtil.solveFile(exportDir.toString(), source);
+                String newName = imageName + ".png";
+                Path newPath = exportDir.resolve(newName);
                     
-                    if (assetImage != null && !Files.exists(newPath)) {
-                        Files.copy(Paths.get(assetImage), newPath);
+                if (assetImage != null && !Files.exists(newPath)) {
+                    Files.copy(Paths.get(assetImage), newPath);
                         
-                        // Handle horizontal flip
-                        Node flipHAttr = asset.getAttributes().getNamedItem("flipH");
-                        if (flipHAttr != null && "1".equals(flipHAttr.getNodeValue())) {
-                            BufferedImage bitmap = ImageIO.read(newPath.toFile());
+                    // Handle horizontal flip
+                    Node flipHAttr = asset.getAttributes().getNamedItem("flipH");
+                    if (flipHAttr != null && "1".equals(flipHAttr.getNodeValue())) {
+                        BufferedImage bitmap = ImageIO.read(newPath.toFile());
                             
-                            AffineTransform tx = AffineTransform.getScaleInstance(-1, 1);
-                            tx.translate(-bitmap.getWidth(), 0);
-                            AffineTransformOp op = new AffineTransformOp(tx, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
-                            bitmap = op.filter(bitmap, null);
+                        AffineTransform tx = AffineTransform.getScaleInstance(-1, 1);
+                        tx.translate(-bitmap.getWidth(), 0);
+                        AffineTransformOp op = new AffineTransformOp(tx, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
+                        bitmap = op.filter(bitmap, null);
 
-                            ImageIO.write(bitmap, "PNG", newPath.toFile());
-                        }
+                        ImageIO.write(bitmap, "PNG", newPath.toFile());
                     }
                 }
             }
