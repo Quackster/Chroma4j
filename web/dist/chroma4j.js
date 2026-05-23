@@ -617,7 +617,7 @@ function fillCanvas(ctx, canvas, color, background) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (background) {
     ctx.drawImage(background, 0, 0);
-  } else if ((color || "transparent").toLowerCase() !== "transparent") {
+  } else if (String(color).toLowerCase() !== "transparent") {
     const fill = parseCanvasColor(color);
     ctx.fillStyle = `rgba(${fill.r}, ${fill.g}, ${fill.b}, ${fill.a / 255})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -635,7 +635,7 @@ function trimColors(options) {
 }
 
 function parseCanvasColor(value) {
-  if (!value || value.toLowerCase() === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
+  if (String(value).toLowerCase() === "transparent") return { r: 0, g: 0, b: 0, a: 0 };
   return { ...parseHex(value), a: 255 };
 }
 
@@ -679,7 +679,7 @@ function normalizeOptions(options) {
     state: state >= 101 ? 0 : state,
     direction,
     color: normalizeColor(options),
-    canvas: options.canvas || "transparent",
+    canvas: options.canvas === undefined ? "transparent" : options.canvas,
     crop: options.crop === undefined ? true : optionBoolean(options.crop),
     shadow: optionBoolean(options.shadow),
     icon: optionBoolean(options.icon),

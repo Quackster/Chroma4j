@@ -50,7 +50,7 @@ var furni = new ChromaFurniture(
     int.Parse(args[4]),
     bool.Parse(args[5]),
     bool.Parse(args[6]),
-    args[7],
+    args[7] == "__CHROMA_EMPTY__" ? "" : args[7],
     bool.Parse(args[8]),
     bool.Parse(args[9]));
 
@@ -86,7 +86,7 @@ public class ChromaParityJavaRender {
             Integer.parseInt(args[4]),
             Boolean.parseBoolean(args[5]),
             Boolean.parseBoolean(args[6]),
-            args[7],
+            "__CHROMA_EMPTY__".equals(args[7]) ? "" : args[7],
             Boolean.parseBoolean(args[8]),
             Boolean.parseBoolean(args[9]));
 
@@ -358,7 +358,7 @@ server.listen(0, "127.0.0.1", async () => {
             shadow: item.shadow,
             bg: item.wasmBg,
             background: item.wasmBackground ?? item.background,
-            canvas: item.canvas,
+            canvas: item.canvas === "__CHROMA_EMPTY__" ? "" : item.canvas,
             crop: item.crop,
             small: item.small,
             icon: item.icon
@@ -398,6 +398,7 @@ $cases = @(
     [pscustomobject]@{ Name = "rare_dragonlamp_icon"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 0; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true; Icon = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_shadow"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $true; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_canvas_nocrop"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "336699"; Crop = $false },
+    [pscustomobject]@{ Name = "rare_dragonlamp_canvas_empty_nocrop"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "__CHROMA_EMPTY__"; Crop = $false },
     [pscustomobject]@{ Name = "rare_dragonlamp_canvas_short_hex"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "FFF"; Crop = $false },
     [pscustomobject]@{ Name = "rare_dragonlamp_canvas_hash_fallback"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "#336699"; Crop = $false },
     [pscustomobject]@{ Name = "rare_dragonlamp_background"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $true; Canvas = "transparent"; Crop = $true },
