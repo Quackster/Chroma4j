@@ -52,6 +52,42 @@ public class ChromaFurniture {
     private int highestAnimationLayer;
     private int maxStates;
 
+    public ChromaFurniture(String inputFileName, boolean isSmallFurni, int renderState, int renderDirection) {
+        this(inputFileName, isSmallFurni, renderState, renderDirection, -1);
+    }
+
+    public ChromaFurniture(String inputFileName, boolean isSmallFurni, int renderState,
+                          int renderDirection, int colourId) {
+        this(inputFileName, isSmallFurni, renderState, renderDirection, colourId, false);
+    }
+
+    public ChromaFurniture(String inputFileName, boolean isSmallFurni, int renderState,
+                          int renderDirection, int colourId, boolean renderShadows) {
+        this(inputFileName, isSmallFurni, renderState, renderDirection, colourId, renderShadows, false);
+    }
+
+    public ChromaFurniture(String inputFileName, boolean isSmallFurni, int renderState,
+                          int renderDirection, int colourId, boolean renderShadows,
+                          boolean renderBackground) {
+        this(inputFileName, isSmallFurni, renderState, renderDirection, colourId,
+             renderShadows, renderBackground, "FEFEFE");
+    }
+
+    public ChromaFurniture(String inputFileName, boolean isSmallFurni, int renderState,
+                          int renderDirection, int colourId, boolean renderShadows,
+                          boolean renderBackground, String renderCanvasColour) {
+        this(inputFileName, isSmallFurni, renderState, renderDirection, colourId,
+             renderShadows, renderBackground, renderCanvasColour, true);
+    }
+
+    public ChromaFurniture(String inputFileName, boolean isSmallFurni, int renderState,
+                          int renderDirection, int colourId, boolean renderShadows,
+                          boolean renderBackground, String renderCanvasColour,
+                          boolean cropImage) {
+        this(inputFileName, isSmallFurni, renderState, renderDirection, colourId,
+             renderShadows, renderBackground, renderCanvasColour, cropImage, false);
+    }
+
     public ChromaFurniture(String inputFileName, boolean isSmallFurni, int renderState, 
                           int renderDirection, int colourId, boolean renderShadows,
                           boolean renderBackground, String renderCanvasColour, 
