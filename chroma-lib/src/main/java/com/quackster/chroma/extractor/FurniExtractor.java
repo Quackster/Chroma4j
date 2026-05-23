@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -57,8 +57,8 @@ public class FurniExtractor {
             SWF swf = new SWF(fis, false);
             fis.close();
             
-            Map<Integer, String> symbolClass = new HashMap<>();
-            Map<Integer, ImageTag> imageTags = new HashMap<>();
+            Map<Integer, String> symbolClass = new LinkedHashMap<>();
+            Map<Integer, ImageTag> imageTags = new LinkedHashMap<>();
 
             // 1) Extract SymbolClass information
             for (Tag tag : swf.getTags()) {

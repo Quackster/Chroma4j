@@ -6,7 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.DataFormatException;
@@ -49,9 +49,9 @@ public final class ChromaWasm {
             skipRect(reader);
             reader.skip(4);
 
-            Map<Integer, String> symbols = new HashMap<>();
-            Map<Integer, ImageAsset> images = new HashMap<>();
-            Map<Integer, byte[]> binaries = new HashMap<>();
+            Map<Integer, String> symbols = new LinkedHashMap<>();
+            Map<Integer, ImageAsset> images = new LinkedHashMap<>();
+            Map<Integer, byte[]> binaries = new LinkedHashMap<>();
 
             while (reader.remaining() > 0) {
                 int header = reader.u16();
