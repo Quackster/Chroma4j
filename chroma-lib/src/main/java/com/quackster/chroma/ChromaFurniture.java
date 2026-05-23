@@ -140,12 +140,12 @@ public class ChromaFurniture {
                 
                 int letterPosition = Integer.parseInt(layerIdAttr.getNodeValue());
                 
-                if (letterPosition < 0 || letterPosition >= 26) {
+                if (letterPosition < 0 || letterPosition > 26) {
                     continue;
                 }
                 
                 int animationLetter = letterPosition;
-                highestAnimationLayer = Math.max(highestAnimationLayer, letterPosition + 1);
+                highestAnimationLayer = letterPosition + 1;
                 
                 Node animationNode = animationLayerNode.getParentNode();
                 Node animIdAttr = animationNode.getAttributes().getNamedItem("id");
