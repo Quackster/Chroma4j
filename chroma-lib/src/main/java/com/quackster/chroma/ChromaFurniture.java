@@ -474,7 +474,7 @@ public class ChromaFurniture {
         
         List<ChromaAsset> buildQueue = createBuildQueue();
         
-        if (buildQueue == null || buildQueue.isEmpty()) {
+        if (buildQueue == null) {
             return null;
         }
         
@@ -659,7 +659,7 @@ public class ChromaFurniture {
     private BufferedImage renderFrameImage(Map<Integer, Integer> frameMap) {
         List<ChromaAsset> buildQueue = createBuildQueueForFrames(frameMap);
         
-        if (buildQueue == null || buildQueue.isEmpty()) {
+        if (buildQueue == null) {
             return null;
         }
         

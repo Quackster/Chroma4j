@@ -67,9 +67,6 @@ async function renderPackage(furni, options, canvas) {
   options.renderWidth = background?.width || 1200;
   options.renderHeight = background?.height || 1200;
   const renderAssets = collectWithDirectionFallback(furni.sprite, assetsXml, visualizationXml, aliases, options);
-  if (!renderAssets.length) {
-    throw new Error("No renderable furni assets found for the selected options");
-  }
 
   const working = document.createElement("canvas");
   working.width = options.renderWidth;
