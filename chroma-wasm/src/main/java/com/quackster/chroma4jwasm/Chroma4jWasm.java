@@ -145,26 +145,28 @@ public final class Chroma4jWasm {
             byte[] compressed = tag.bytes(tag.remaining());
             byte[] inflated = inflate(compressed, 0, compressed.length);
 
-            if (format == 5) {
-                byte[] rgba = new byte[width * height * 4];
-                int pixels = Math.min(width * height, inflated.length / 4);
-                for (int i = 0; i < pixels; i++) {
-                    int source = i * 4;
-                    int target = i * 4;
-                    if (code == 36) {
-                        rgba[target] = inflated[source + 1];
-                        rgba[target + 1] = inflated[source + 2];
-                        rgba[target + 2] = inflated[source + 3];
-                        rgba[target + 3] = inflated[source];
-                    } else {
-                        rgba[target] = inflated[source + 2];
-                        rgba[target + 1] = inflated[source + 1];
-                        rgba[target + 2] = inflated[source];
-                        rgba[target + 3] = (byte) 255;
-                    }
-                }
-                images.put(id, ImageAsset.raw("", width, height, rgba));
+            if (format != 5) {
+                throw new IOException("Unsupported DefineBitsLossless format " + format + " in tag " + code);
             }
+
+            byte[] rgba = new byte[width * height * 4];
+            int pixels = Math.min(width * height, inflated.length / 4);
+            for (int i = 0; i < pixels; i++) {
+                int source = i * 4;
+                int target = i * 4;
+                if (code == 36) {
+                    rgba[target] = inflated[source + 1];
+                    rgba[target + 1] = inflated[source + 2];
+                    rgba[target + 2] = inflated[source + 3];
+                    rgba[target + 3] = inflated[source];
+                } else {
+                    rgba[target] = inflated[source + 2];
+                    rgba[target + 1] = inflated[source + 1];
+                    rgba[target + 2] = inflated[source];
+                    rgba[target + 3] = (byte) 255;
+                }
+            }
+            images.put(id, ImageAsset.raw("", width, height, rgba));
         }
 
         private static String detectSprite(String requested, Map<Integer, String> symbols) {

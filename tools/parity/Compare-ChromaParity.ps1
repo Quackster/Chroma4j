@@ -241,7 +241,7 @@ function Get-SwfBitmapSummary([string] $SwfPath) {
         Swf = Split-Path $SwfPath -Leaf
         Summary = (($summary.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join "; ")
         UnsupportedForWasm = (($summary.GetEnumerator() | Where-Object {
-            $_.Key -like "DefineBitsLossless36:*" -and $_.Key -ne "DefineBitsLossless36:Format5"
+            $_.Key -like "DefineBitsLossless*:*" -and $_.Key -notlike "*:Format5"
         } | Sort-Object Name | ForEach-Object { $_.Key }) -join ", ")
     }
 }
