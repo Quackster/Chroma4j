@@ -19,6 +19,7 @@ const controls = {
 let lastResult;
 
 controls.render.addEventListener("click", async () => {
+  resetPreview();
   controls.status.textContent = "Loading TeaVM renderer...";
   controls.render.disabled = true;
   controls.download.disabled = true;
@@ -43,6 +44,14 @@ controls.render.addEventListener("click", async () => {
     controls.render.disabled = false;
   }
 });
+
+function resetPreview() {
+  lastResult = undefined;
+  controls.preview.width = 1;
+  controls.preview.height = 1;
+  const context = controls.preview.getContext("2d");
+  context.clearRect(0, 0, controls.preview.width, controls.preview.height);
+}
 
 controls.download.addEventListener("click", async () => {
   if (!lastResult) return;

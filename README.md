@@ -140,6 +140,30 @@ Expected output for each request:
 
 For visual validation, use a known CORS-enabled furni SWF URL in the demo and confirm the preview canvas renders non-empty pixels before downloading PNG.
 
+## C# Parity Checks
+
+The C# project is the rendering source of truth. Use the parity runner to render selected SWFs through C# and Java, then compare PNG pixels:
+
+```powershell
+.\tools\parity\Compare-ChromaParity.ps1 -CSharpRoot C:\SourceControl\Chroma
+```
+
+To include the browser/TeaVM path, install the local automation dependency and pass `-IncludeWasm`:
+
+```powershell
+npm install --no-save playwright-core
+.\tools\parity\Compare-ChromaParity.ps1 -CSharpRoot C:\SourceControl\Chroma -IncludeWasm
+```
+
+The runner downloads its SWF fixtures into `build/parity`, builds a temporary C# harness against `C:\SourceControl\Chroma\Chroma\Chroma.csproj`, renders the same options with `chroma-lib`, and reports pixel deltas. A passing row has `DifferingPixels = 0`.
+
+Current parity-sensitive fixtures include:
+
+- `rare_dragonlamp`, directions `2` and `4`, which must be exact.
+- `rare_dragonlamp`, small render, icon render, shadow render, and no-crop colored canvas render.
+- `rare_parasol`, state `1`, direction `4`, which covers translucent alpha blending and final crop/export behavior.
+- `rare_parasol`, state `1`, direction `4`, with shadows enabled.
+
 ## Build The Spring Webapp
 
 The existing server-side renderer can still be built with:

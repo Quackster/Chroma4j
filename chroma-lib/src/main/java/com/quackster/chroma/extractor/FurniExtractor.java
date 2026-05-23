@@ -159,18 +159,11 @@ public class FurniExtractor {
                         if (flipHAttr != null && "1".equals(flipHAttr.getNodeValue())) {
                             BufferedImage bitmap = ImageIO.read(newPath.toFile());
                             
-                            // Flip horizontally
                             AffineTransform tx = AffineTransform.getScaleInstance(-1, 1);
                             tx.translate(-bitmap.getWidth(), 0);
                             AffineTransformOp op = new AffineTransformOp(tx, AffineTransformOp.TYPE_NEAREST_NEIGHBOR);
                             bitmap = op.filter(bitmap, null);
-                            
-                            // Rotate 180 degrees
-                            AffineTransform rotate = AffineTransform.getRotateInstance(Math.PI, 
-                                bitmap.getWidth() / 2.0, bitmap.getHeight() / 2.0);
-                            AffineTransformOp rotateOp = new AffineTransformOp(rotate, AffineTransformOp.TYPE_BILINEAR);
-                            bitmap = rotateOp.filter(bitmap, null);
-                            
+
                             ImageIO.write(bitmap, "PNG", newPath.toFile());
                         }
                     }

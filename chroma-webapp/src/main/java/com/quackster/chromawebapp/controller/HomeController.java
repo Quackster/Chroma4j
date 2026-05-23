@@ -32,8 +32,8 @@ public class HomeController {
             @RequestParam(name = "small", required = false, defaultValue = "false") String small,
             @RequestParam(name = "s", required = false, defaultValue = "false") String s,
             @RequestParam(name = "state", required = false, defaultValue = "0") String state,
-            @RequestParam(name = "direction", required = false, defaultValue = "0") String direction,
-            @RequestParam(name = "rotation", required = false, defaultValue = "0") String rotation,
+            @RequestParam(name = "direction", required = false) String direction,
+            @RequestParam(name = "rotation", required = false) String rotation,
             @RequestParam(name = "color", required = false, defaultValue = "0") String color,
             @RequestParam(name = "colour", required = false, defaultValue = "0") String colour,
             @RequestParam(name = "bg", required = false, defaultValue = "false") String bg,
@@ -48,7 +48,10 @@ public class HomeController {
             // Parse parameters
             boolean isSmallFurni = parseBoolean(small) || parseBoolean(s);
             int renderState = parseNumeric(state, 0);
-            int renderDirection = parseNumeric(direction, parseNumeric(rotation, 0));
+            int renderDirection = parseNumeric(direction, 0);
+            if (rotation != null && !rotation.isEmpty()) {
+                renderDirection = parseNumeric(rotation, renderDirection);
+            }
             int colorId = Math.max(parseNumeric(color, 0), parseNumeric(colour, 0));
             boolean renderBackground = !("0".equals(bg) || "false".equalsIgnoreCase(bg));
             boolean renderShadows = "1".equals(shadow) || "true".equalsIgnoreCase(shadow);

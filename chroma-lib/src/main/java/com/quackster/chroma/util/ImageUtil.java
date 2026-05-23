@@ -87,12 +87,7 @@ public class ImageUtil {
         }
         
         try {
-            BufferedImage target = new BufferedImage(croppedWidth, croppedHeight, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = target.createGraphics();
-            g.drawImage(bmp, 0, 0, croppedWidth, croppedHeight,
-                       leftmost, topmost, rightmost, bottommost, null);
-            g.dispose();
-            return target;
+            return cropSystemDrawingBitmap(bmp, leftmost, topmost, croppedWidth, croppedHeight);
         } catch (Exception ex) {
             throw new RuntimeException(
                 String.format("Values are topmost=%d btm=%d left=%d right=%d croppedWidth=%d croppedHeight=%d",
@@ -159,12 +154,7 @@ public class ImageUtil {
         }
         
         try {
-            BufferedImage target = new BufferedImage(croppedWidth, croppedHeight, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = target.createGraphics();
-            g.drawImage(bmp, 0, 0, croppedWidth, croppedHeight,
-                       leftmost, topmost, rightmost, bottommost, null);
-            g.dispose();
-            return target;
+            return cropSystemDrawingBitmap(bmp, leftmost, topmost, croppedWidth, croppedHeight);
         } catch (Exception ex) {
             throw new RuntimeException(
                 String.format("Values are topmost=%d btm=%d left=%d right=%d croppedWidth=%d croppedHeight=%d",
@@ -208,5 +198,31 @@ public class ImageUtil {
             }
         }
         return false;
+    }
+
+    private static BufferedImage cropSystemDrawingBitmap(BufferedImage source, int left, int top, int width, int height) {
+        BufferedImage target = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                target.setRGB(x, y, quantizeSystemDrawingPixel(source.getRGB(left + x, top + y)));
+            }
+        }
+        return target;
+    }
+
+    private static int quantizeSystemDrawingPixel(int argb) {
+        int alpha = (argb >>> 24) & 0xff;
+        if (alpha == 0 || alpha == 255) {
+            return argb;
+        }
+
+        int red = quantizeSystemDrawingChannel((argb >>> 16) & 0xff, alpha);
+        int green = quantizeSystemDrawingChannel((argb >>> 8) & 0xff, alpha);
+        int blue = quantizeSystemDrawingChannel(argb & 0xff, alpha);
+        return (alpha << 24) | (red << 16) | (green << 8) | blue;
+    }
+
+    private static int quantizeSystemDrawingChannel(int channel, int alpha) {
+        return ((int) Math.round(channel * alpha / 255.0) * 255) / alpha;
     }
 }

@@ -29,6 +29,7 @@ public class ChromaFurniture {
     
     private int renderState;
     private int renderDirection;
+    private int requestedRenderDirection;
     private int colourId;
     private String sprite;
     private List<ChromaAsset> assets;
@@ -45,6 +46,7 @@ public class ChromaFurniture {
     private boolean cropImage;
     private boolean isIcon;
     private boolean generateGif;
+    private boolean mirrorFallbackH;
     private int animationCount;
     private TreeMap<Integer, ChromaAnimation> animations;
     private int highestAnimationLayer;
@@ -67,6 +69,7 @@ public class ChromaFurniture {
         this.assets = new ArrayList<>();
         this.renderState = renderState;
         this.renderDirection = renderDirection;
+        this.requestedRenderDirection = renderDirection;
         this.colourId = colourId;
         this.sprite = getFileNameWithoutExtension(inputFileName);
         this.outputFileName = getFileName();
@@ -375,26 +378,7 @@ public class ChromaFurniture {
             .filter(x -> x.isSmall() == isSmallFurni)
             .collect(Collectors.toList());
         
-        List<ChromaAsset> validDirections = candidates.stream()
-            .filter(x -> x.getDirection() == renderDirection)
-            .collect(Collectors.toList());
-        
-        if (validDirections.isEmpty()) {
-            renderDirection = 0;
-            validDirections = candidates.stream().filter(x -> x.getDirection() == renderDirection).collect(Collectors.toList());
-        }
-        if (validDirections.isEmpty()) {
-            renderDirection = 2;
-            validDirections = candidates.stream().filter(x -> x.getDirection() == renderDirection).collect(Collectors.toList());
-        }
-        if (validDirections.isEmpty()) {
-            renderDirection = 4;
-            validDirections = candidates.stream().filter(x -> x.getDirection() == renderDirection).collect(Collectors.toList());
-        }
-        if (validDirections.isEmpty()) {
-            renderDirection = 6;
-            validDirections = candidates.stream().filter(x -> x.getDirection() == renderDirection).collect(Collectors.toList());
-        }
+        List<ChromaAsset> validDirections = selectFallbackDirection(candidates, requestedRenderDirection);
         
         candidates = validDirections;
         List<ChromaAsset> renderFrames = new ArrayList<>();
@@ -483,10 +467,7 @@ public class ChromaFurniture {
                     // Add Pin (33): Add RGB values and clamp to 255
                     applyAddPinBlending(canvas, image, x, y);
                 } else {
-                    // Default blending mode
-                    Composite originalComposite = g.getComposite();
-                    g.drawImage(image, x, y, null);
-                    g.setComposite(originalComposite);
+                    applyNormalBlending(canvas, image, x, y);
                 }
                 
             } catch (IOException e) {
@@ -501,6 +482,10 @@ public class ChromaFurniture {
         
         if (cropImage && !cropColours.isEmpty()) {
             finalImage = ImageUtil.trimBitmap(canvas, cropColours.toArray(new Color[0]));
+        }
+
+        if (mirrorFallbackH) {
+            finalImage = flipHorizontal(finalImage);
         }
         
         return renderImage(finalImage);
@@ -589,26 +574,7 @@ public class ChromaFurniture {
             .filter(x -> x.isSmall() == isSmallFurni)
             .collect(Collectors.toList());
         
-        List<ChromaAsset> validDirections = candidates.stream()
-            .filter(x -> x.getDirection() == renderDirection)
-            .collect(Collectors.toList());
-        
-        if (validDirections.isEmpty()) {
-            renderDirection = 0;
-            validDirections = candidates.stream().filter(x -> x.getDirection() == renderDirection).collect(Collectors.toList());
-        }
-        if (validDirections.isEmpty()) {
-            renderDirection = 2;
-            validDirections = candidates.stream().filter(x -> x.getDirection() == renderDirection).collect(Collectors.toList());
-        }
-        if (validDirections.isEmpty()) {
-            renderDirection = 4;
-            validDirections = candidates.stream().filter(x -> x.getDirection() == renderDirection).collect(Collectors.toList());
-        }
-        if (validDirections.isEmpty()) {
-            renderDirection = 6;
-            validDirections = candidates.stream().filter(x -> x.getDirection() == renderDirection).collect(Collectors.toList());
-        }
+        List<ChromaAsset> validDirections = selectFallbackDirection(candidates, requestedRenderDirection);
         
         candidates = validDirections;
         List<ChromaAsset> renderFrames = new ArrayList<>();
@@ -686,10 +652,7 @@ public class ChromaFurniture {
                     // Add Pin (33): Add RGB values and clamp to 255
                     applyAddPinBlending(canvas, image, x, y);
                 } else {
-                    // Default blending mode
-                    Composite originalComposite = g.getComposite();
-                    g.drawImage(image, x, y, null);
-                    g.setComposite(originalComposite);
+                    applyNormalBlending(canvas, image, x, y);
                 }
                 
             } catch (IOException e) {
@@ -705,8 +668,51 @@ public class ChromaFurniture {
         if (cropImage && !cropColours.isEmpty()) {
             finalImage = ImageUtil.trimBitmap(canvas, cropColours.toArray(new Color[0]));
         }
+
+        if (mirrorFallbackH) {
+            finalImage = flipHorizontal(finalImage);
+        }
         
         return finalImage;
+    }
+
+    private List<ChromaAsset> selectFallbackDirection(List<ChromaAsset> candidates, int requestedDirection) {
+        mirrorFallbackH = false;
+
+        List<ChromaAsset> validDirections = candidates.stream()
+            .filter(x -> x.getDirection() == requestedDirection)
+            .collect(Collectors.toList());
+
+        if (!validDirections.isEmpty()) {
+            return validDirections;
+        }
+
+        if (requestedDirection == 0) {
+            validDirections = candidates.stream().filter(x -> x.getDirection() == 4).collect(Collectors.toList());
+            if (!validDirections.isEmpty()) {
+                renderDirection = 4;
+                mirrorFallbackH = true;
+                return validDirections;
+            }
+        }
+
+        for (int direction : new int[] {0, 2, 4, 6}) {
+            validDirections = candidates.stream().filter(x -> x.getDirection() == direction).collect(Collectors.toList());
+            if (!validDirections.isEmpty()) {
+                renderDirection = direction;
+                return validDirections;
+            }
+        }
+
+        return validDirections;
+    }
+
+    private BufferedImage flipHorizontal(BufferedImage image) {
+        BufferedImage flipped = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = flipped.createGraphics();
+        g.drawImage(image, image.getWidth(), 0, -image.getWidth(), image.getHeight(), null);
+        g.dispose();
+        return flipped;
     }
 
     /**
@@ -793,6 +799,56 @@ public class ChromaFurniture {
         g.drawImage(image, 0, 0, null);
         g.dispose();
         return result;
+    }
+
+    private void applyNormalBlending(BufferedImage canvas, BufferedImage foreground, int x, int y) {
+        int canvasWidth = canvas.getWidth();
+        int canvasHeight = canvas.getHeight();
+        int fgWidth = foreground.getWidth();
+        int fgHeight = foreground.getHeight();
+
+        int startX = Math.max(0, x);
+        int startY = Math.max(0, y);
+        int endX = Math.min(canvasWidth, x + fgWidth);
+        int endY = Math.min(canvasHeight, y + fgHeight);
+
+        for (int cy = startY; cy < endY; cy++) {
+            for (int cx = startX; cx < endX; cx++) {
+                Color fgColor = new Color(foreground.getRGB(cx - x, cy - y), true);
+                int fgAlpha = fgColor.getAlpha();
+                if (fgAlpha == 0) {
+                    continue;
+                }
+
+                Color bgColor = new Color(canvas.getRGB(cx, cy), true);
+                int alpha = blendNormalAlpha(fgAlpha, bgColor.getAlpha());
+                int r = blendNormalChannel(fgColor.getRed(), fgAlpha, bgColor.getRed(), bgColor.getAlpha(), alpha);
+                int g = blendNormalChannel(fgColor.getGreen(), fgAlpha, bgColor.getGreen(), bgColor.getAlpha(), alpha);
+                int b = blendNormalChannel(fgColor.getBlue(), fgAlpha, bgColor.getBlue(), bgColor.getAlpha(), alpha);
+
+                canvas.setRGB(cx, cy, new Color(r, g, b, alpha).getRGB());
+            }
+        }
+    }
+
+    private int blendNormalAlpha(int fgAlpha, int bgAlpha) {
+        double sourceAlpha = fgAlpha / 255.0;
+        double backgroundAlpha = bgAlpha / 255.0;
+        return clampChannel((int) Math.round((sourceAlpha + backgroundAlpha * (1.0 - sourceAlpha)) * 255.0));
+    }
+
+    private int blendNormalChannel(int fg, int fgAlpha, int bg, int bgAlpha, int alpha) {
+        if (alpha == 0) {
+            return 0;
+        }
+        double sourceAlpha = fgAlpha / 255.0;
+        double backgroundAlpha = bgAlpha / 255.0;
+        double outAlpha = alpha / 255.0;
+        return clampChannel((int) Math.round((fg * sourceAlpha + bg * backgroundAlpha * (1.0 - sourceAlpha)) / outAlpha));
+    }
+
+    private int clampChannel(int value) {
+        return Math.max(0, Math.min(255, value));
     }
 
     /**

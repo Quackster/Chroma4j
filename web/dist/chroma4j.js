@@ -48,13 +48,13 @@ async function renderFromBytes(bytes, options = {}, target) {
     throw new Error(furni.error || "SWF parsing failed");
   }
   const canvas = target || document.createElement("canvas");
-  await renderPackage(furni, normalized, canvas);
+  const pngBytes = await renderPackage(furni, normalized, canvas);
   return {
     canvas,
     width: canvas.width,
     height: canvas.height,
-    blob: () => new Promise(resolve => canvas.toBlob(resolve, "image/png")),
-    dataUrl: () => canvas.toDataURL("image/png")
+    blob: () => Promise.resolve(new Blob([pngBytes], { type: "image/png" })),
+    dataUrl: () => `data:image/png;base64,${bytesToBase64(pngBytes)}`
   };
 }
 
@@ -72,6 +72,7 @@ async function renderPackage(furni, options, canvas) {
   working.width = 1200;
   working.height = 1200;
   const ctx = working.getContext("2d", { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = false;
   fillCanvas(ctx, working, options.canvas);
 
   for (const asset of renderAssets) {
@@ -81,7 +82,14 @@ async function renderPackage(furni, options, canvas) {
   const crop = options.crop ? cropBounds(ctx, working, options.canvas) : { x: 0, y: 0, width: working.width, height: working.height };
   canvas.width = crop.width;
   canvas.height = crop.height;
-  canvas.getContext("2d").drawImage(working, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
+  const outputCtx = canvas.getContext("2d");
+  outputCtx.imageSmoothingEnabled = false;
+  let output = cropSystemDrawingBitmap(ctx, crop);
+  if (options.mirrorFallbackH) {
+    output = flipImageDataHorizontal(output);
+  }
+  outputCtx.putImageData(output, 0, 0);
+  return encodePng(output);
 }
 
 function collectRenderAssets(sprite, assetsXml, visualizationXml, images, options) {
@@ -89,34 +97,44 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
   const layers = readLayers(visualizationXml, size, options.direction);
   const colorLayers = readColorLayers(visualizationXml, size, options.color);
   const animations = readAnimationFrames(visualizationXml, size, options.state);
-  const assets = [...assetsXml.getElementsByTagName("asset")].map(node => {
+  const candidates = [...assetsXml.getElementsByTagName("asset")].map(node => {
     const name = attr(node, "name");
     if (!name || name.includes(".props") || name.startsWith(`s_${sprite}`)) return null;
     if (options.icon ? !name.includes("_icon_") : name.includes("_icon_")) return null;
 
     const parsed = parseAssetName(sprite, name, options.icon);
-    if (!parsed || parsed.size !== size) return null;
+    if (!parsed || (!options.icon && parsed.size !== size)) return null;
     const imageEntry = images.get(normalizeName(sprite, name)) || images.get(normalizeName(sprite, attr(node, "source") || ""));
     if (!imageEntry) return null;
 
     const layerInfo = layers.get(parsed.layer) || {};
-    const frame = animations.get(parsed.layer) ?? 0;
-    if (!options.icon && (parsed.direction !== options.direction || parsed.frame !== frame)) return null;
-
     return {
       name,
       image: imageEntry.image,
       flipH: attr(node, "flipH") === "1" || imageEntry.flipH,
-      x: numberAttr(node, "x", 0) + 600,
+      x: ((attr(node, "flipH") === "1" || imageEntry.flipH) ? imageEntry.image.width - numberAttr(node, "x", 0) : numberAttr(node, "x", 0)) + 600,
       y: numberAttr(node, "y", 0) + 600,
       z: (layerInfo.z ?? parsed.layer) + parsed.layer,
       layer: parsed.layer,
+      direction: parsed.direction,
+      frame: parsed.frame,
       ink: layerInfo.ink,
       alpha: layerInfo.alpha,
       color: colorLayers.get(parsed.layer),
       shadow: name.includes("_sd_")
     };
   }).filter(Boolean);
+
+  const highestLayer = candidates
+    .filter(asset => !asset.shadow)
+    .reduce((highest, asset) => Math.max(highest, asset.layer), -1) + 1;
+  const assets = [];
+  for (let layer = 0; layer < highestLayer; layer++) {
+    const frame = animations.get(layer) ?? 0;
+    assets.push(...candidates.filter(asset =>
+      asset.layer === layer &&
+      (options.icon || (asset.direction === options.direction && asset.frame === frame))));
+  }
 
   if (!options.shadow) {
     return assets.filter(asset => !asset.shadow).sort((a, b) => a.z - b.z);
@@ -128,6 +146,14 @@ function collectWithDirectionFallback(sprite, assetsXml, visualizationXml, image
   const preferred = collectRenderAssets(sprite, assetsXml, visualizationXml, images, options);
   if (preferred.length || options.icon) {
     return preferred;
+  }
+  if (options.direction === 0) {
+    const mirrored = collectRenderAssets(sprite, assetsXml, visualizationXml, images, { ...options, direction: 4 });
+    if (mirrored.length) {
+      options.direction = 4;
+      options.mirrorFallbackH = true;
+      return mirrored;
+    }
   }
   for (const direction of [0, 2, 4, 6]) {
     if (direction === options.direction) continue;
@@ -144,9 +170,11 @@ function readLayers(doc, size, direction) {
   const result = new Map();
   const visualization = [...doc.getElementsByTagName("visualization")].find(node => attr(node, "size") === size);
   if (!visualization) return result;
+  const baseLayers = visualization.getElementsByTagName("layers")[0]?.getElementsByTagName("layer") || [];
   const directionNode = [...visualization.getElementsByTagName("direction")].find(node => attr(node, "id") === String(direction));
-  const root = directionNode && directionNode.getElementsByTagName("layer").length > 0 ? directionNode : visualization;
-  for (const layer of root.getElementsByTagName("layer")) {
+  const directionLayers = directionNode?.getElementsByTagName("layers")[0]?.getElementsByTagName("layer") || [];
+  const layerNodes = baseLayers.length > 0 ? baseLayers : directionLayers;
+  for (const layer of layerNodes) {
     const id = numberAttr(layer, "id", -1);
     if (id >= 0) {
       result.set(id, {
@@ -209,8 +237,9 @@ function buildImageAliases(sprite, assetsXml, images) {
   for (const asset of assetsXml.getElementsByTagName("asset")) {
     const name = normalizeName(sprite, attr(asset, "name"));
     const source = normalizeName(sprite, attr(asset, "source"));
-    if (source && images.has(source) && !aliases.has(name)) {
-      aliases.set(name, { ...images.get(source), flipH: attr(asset, "flipH") === "1" });
+    if (source && aliases.has(source) && !aliases.has(name)) {
+      const sourceEntry = aliases.get(source);
+      aliases.set(name, { ...sourceEntry, flipH: sourceEntry.flipH || attr(asset, "flipH") === "1" });
     }
   }
   return aliases;
@@ -222,29 +251,231 @@ function drawAsset(ctx, canvas, asset) {
   const x = canvas.width - asset.x;
   const y = canvas.height - asset.y;
 
-  const source = document.createElement("canvas");
-  source.width = width;
-  source.height = height;
-  const sourceCtx = source.getContext("2d", { willReadFrequently: true });
-  sourceCtx.save();
-  if (asset.flipH) {
-    sourceCtx.translate(width, 0);
-    sourceCtx.scale(-1, 1);
+  let imageData;
+  if (asset.image.data) {
+    imageData = new ImageData(new Uint8ClampedArray(asset.image.data), width, height);
+    if (asset.flipH) {
+      imageData = flipImageDataHorizontal(imageData);
+    }
+  } else {
+    const source = document.createElement("canvas");
+    source.width = width;
+    source.height = height;
+    const sourceCtx = source.getContext("2d", { willReadFrequently: true });
+    sourceCtx.imageSmoothingEnabled = false;
+    sourceCtx.save();
+    if (asset.flipH) {
+      sourceCtx.translate(width, 0);
+      sourceCtx.scale(-1, 1);
+    }
+    sourceCtx.drawImage(asset.image, 0, 0);
+    sourceCtx.restore();
+    imageData = sourceCtx.getImageData(0, 0, width, height);
   }
-  sourceCtx.drawImage(asset.image, 0, 0);
-  sourceCtx.restore();
 
-  let imageData = sourceCtx.getImageData(0, 0, width, height);
   if (asset.alpha !== undefined) applyAlpha(imageData, asset.alpha);
   if (asset.color) applyTint(imageData, asset.color, 255);
   if (asset.shadow) applyOpacity(imageData, 0.2);
-  sourceCtx.putImageData(imageData, 0, 0);
 
   if (asset.ink === "ADD" || asset.ink === "33") {
-    drawAdd(ctx, source, x, y);
+    drawAdd(ctx, imageData, x, y);
   } else {
-    ctx.drawImage(source, x, y);
+    drawNormal(ctx, imageData, x, y);
   }
+}
+
+function drawNormal(ctx, source, x, y) {
+  const startX = Math.max(0, x);
+  const startY = Math.max(0, y);
+  const endX = Math.min(ctx.canvas.width, x + source.width);
+  const endY = Math.min(ctx.canvas.height, y + source.height);
+  const width = endX - startX;
+  const height = endY - startY;
+  if (width <= 0 || height <= 0) return;
+
+  const bg = ctx.getImageData(startX, startY, width, height);
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const sourceIndex = ((startY - y + row) * source.width + (startX - x + col)) * 4;
+      const targetIndex = (row * width + col) * 4;
+      const fgAlpha = source.data[sourceIndex + 3];
+      if (fgAlpha === 0) continue;
+
+      const bgAlpha = bg.data[targetIndex + 3];
+      const alpha = blendNormalAlpha(fgAlpha, bgAlpha);
+      bg.data[targetIndex] = blendNormalChannel(source.data[sourceIndex], fgAlpha, bg.data[targetIndex], bgAlpha, alpha);
+      bg.data[targetIndex + 1] = blendNormalChannel(source.data[sourceIndex + 1], fgAlpha, bg.data[targetIndex + 1], bgAlpha, alpha);
+      bg.data[targetIndex + 2] = blendNormalChannel(source.data[sourceIndex + 2], fgAlpha, bg.data[targetIndex + 2], bgAlpha, alpha);
+      bg.data[targetIndex + 3] = alpha;
+    }
+  }
+  ctx.putImageData(bg, startX, startY);
+}
+
+function blendNormalAlpha(fgAlpha, bgAlpha) {
+  const sourceAlpha = fgAlpha / 255;
+  const backgroundAlpha = bgAlpha / 255;
+  return clampChannel(Math.round((sourceAlpha + backgroundAlpha * (1 - sourceAlpha)) * 255));
+}
+
+function blendNormalChannel(fg, fgAlpha, bg, bgAlpha, alpha) {
+  if (alpha === 0) return 0;
+  const sourceAlpha = fgAlpha / 255;
+  const backgroundAlpha = bgAlpha / 255;
+  const outAlpha = alpha / 255;
+  return clampChannel(Math.round((fg * sourceAlpha + bg * backgroundAlpha * (1 - sourceAlpha)) / outAlpha));
+}
+
+function clampChannel(value) {
+  return Math.max(0, Math.min(255, value));
+}
+
+function cropSystemDrawingBitmap(ctx, crop) {
+  const output = ctx.getImageData(crop.x, crop.y, crop.width, crop.height);
+  for (let i = 0; i < output.data.length; i += 4) {
+    const alpha = output.data[i + 3];
+    if (alpha === 0 || alpha === 255) continue;
+
+    output.data[i] = quantizeSystemDrawingChannel(output.data[i], alpha);
+    output.data[i + 1] = quantizeSystemDrawingChannel(output.data[i + 1], alpha);
+    output.data[i + 2] = quantizeSystemDrawingChannel(output.data[i + 2], alpha);
+  }
+  return output;
+}
+
+function quantizeSystemDrawingChannel(channel, alpha) {
+  return Math.trunc(Math.round(channel * alpha / 255) * 255 / alpha);
+}
+
+function flipImageDataHorizontal(imageData) {
+  const flipped = new ImageData(imageData.width, imageData.height);
+  for (let y = 0; y < imageData.height; y++) {
+    for (let x = 0; x < imageData.width; x++) {
+      const source = (y * imageData.width + x) * 4;
+      const target = (y * imageData.width + (imageData.width - 1 - x)) * 4;
+      flipped.data[target] = imageData.data[source];
+      flipped.data[target + 1] = imageData.data[source + 1];
+      flipped.data[target + 2] = imageData.data[source + 2];
+      flipped.data[target + 3] = imageData.data[source + 3];
+    }
+  }
+  return flipped;
+}
+
+function encodePng(imageData) {
+  const scanlineLength = imageData.width * 4 + 1;
+  const raw = new Uint8Array(scanlineLength * imageData.height);
+  for (let y = 0; y < imageData.height; y++) {
+    const rawOffset = y * scanlineLength;
+    const dataOffset = y * imageData.width * 4;
+    raw[rawOffset] = 0;
+    raw.set(imageData.data.subarray(dataOffset, dataOffset + imageData.width * 4), rawOffset + 1);
+  }
+
+  const compressed = zlibStore(raw);
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  return concatBytes([
+    signature,
+    pngChunk("IHDR", pngHeader(imageData.width, imageData.height)),
+    pngChunk("IDAT", compressed),
+    pngChunk("IEND", new Uint8Array(0))
+  ]);
+}
+
+function pngHeader(width, height) {
+  const header = new Uint8Array(13);
+  writeUint32(header, 0, width);
+  writeUint32(header, 4, height);
+  header[8] = 8;
+  header[9] = 6;
+  header[10] = 0;
+  header[11] = 0;
+  header[12] = 0;
+  return header;
+}
+
+function pngChunk(type, data) {
+  const typeBytes = new TextEncoder().encode(type);
+  const chunk = new Uint8Array(12 + data.length);
+  writeUint32(chunk, 0, data.length);
+  chunk.set(typeBytes, 4);
+  chunk.set(data, 8);
+  writeUint32(chunk, 8 + data.length, crc32(concatBytes([typeBytes, data])));
+  return chunk;
+}
+
+function zlibStore(data) {
+  const blockCount = Math.ceil(data.length / 65535) || 1;
+  const output = new Uint8Array(2 + data.length + blockCount * 5 + 4);
+  let offset = 0;
+  output[offset++] = 0x78;
+  output[offset++] = 0x01;
+
+  for (let source = 0; source < data.length || source === 0; source += 65535) {
+    const length = Math.min(65535, data.length - source);
+    const finalBlock = source + length >= data.length;
+    output[offset++] = finalBlock ? 1 : 0;
+    output[offset++] = length & 0xff;
+    output[offset++] = (length >>> 8) & 0xff;
+    const inverse = (~length) & 0xffff;
+    output[offset++] = inverse & 0xff;
+    output[offset++] = (inverse >>> 8) & 0xff;
+    output.set(data.subarray(source, source + length), offset);
+    offset += length;
+    if (data.length === 0) break;
+  }
+
+  writeUint32(output, offset, adler32(data));
+  return output;
+}
+
+function writeUint32(bytes, offset, value) {
+  bytes[offset] = (value >>> 24) & 0xff;
+  bytes[offset + 1] = (value >>> 16) & 0xff;
+  bytes[offset + 2] = (value >>> 8) & 0xff;
+  bytes[offset + 3] = value & 0xff;
+}
+
+function concatBytes(parts) {
+  const length = parts.reduce((sum, part) => sum + part.length, 0);
+  const result = new Uint8Array(length);
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+  return result;
+}
+
+let crcTable;
+
+function crc32(bytes) {
+  if (!crcTable) {
+    crcTable = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      crcTable[i] = c >>> 0;
+    }
+  }
+
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function adler32(bytes) {
+  let a = 1;
+  let b = 0;
+  for (const byte of bytes) {
+    a = (a + byte) % 65521;
+    b = (b + a) % 65521;
+  }
+  return ((b << 16) | a) >>> 0;
 }
 
 function drawAdd(ctx, source, x, y) {
@@ -256,14 +487,26 @@ function drawAdd(ctx, source, x, y) {
   const height = endY - startY;
   if (width <= 0 || height <= 0) return;
 
-  const fg = source.getContext("2d").getImageData(startX - x, startY - y, width, height);
   const bg = ctx.getImageData(startX, startY, width, height);
-  for (let i = 0; i < fg.data.length; i += 4) {
-    if (fg.data[i + 3] === 0) continue;
-    bg.data[i] = Math.min(255, bg.data[i] + fg.data[i]);
-    bg.data[i + 1] = Math.min(255, bg.data[i + 1] + fg.data[i + 1]);
-    bg.data[i + 2] = Math.min(255, bg.data[i + 2] + fg.data[i + 2]);
-    bg.data[i + 3] = Math.max(bg.data[i + 3], fg.data[i + 3]);
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const sourceIndex = ((startY - y + row) * source.width + (startX - x + col)) * 4;
+      const targetIndex = (row * width + col) * 4;
+      if (source.data[sourceIndex + 3] === 0) continue;
+      const r = Math.min(255, bg.data[targetIndex] + source.data[sourceIndex]);
+      const g = Math.min(255, bg.data[targetIndex + 1] + source.data[sourceIndex + 1]);
+      const b = Math.min(255, bg.data[targetIndex + 2] + source.data[sourceIndex + 2]);
+      bg.data[targetIndex] = r;
+      bg.data[targetIndex + 1] = g;
+      bg.data[targetIndex + 2] = b;
+      if (source.data[sourceIndex + 3] === 255) {
+        bg.data[targetIndex + 3] = bg.data[targetIndex + 3];
+      } else if (bg.data[targetIndex + 3] === 0) {
+        bg.data[targetIndex + 3] = source.data[sourceIndex + 3];
+      } else {
+        bg.data[targetIndex + 3] = Math.min(255, Math.max(bg.data[targetIndex + 3], source.data[sourceIndex + 3]));
+      }
+    }
   }
   ctx.putImageData(bg, startX, startY);
 }
@@ -396,7 +639,13 @@ function samePixel(data, i, color) {
 function parseAssetName(sprite, name, icon) {
   const parts = normalizeName(sprite, name).split("_");
   if (icon) {
-    return { size: parts[0], layer: 0, direction: 0, frame: 0 };
+    if (parts.length < 2) return null;
+    return {
+      size: parts[0],
+      layer: parts[1].toUpperCase().charCodeAt(0) - 65,
+      direction: 0,
+      frame: 0
+    };
   }
   if (parts.length < 4) return null;
   return {
@@ -408,7 +657,7 @@ function parseAssetName(sprite, name, icon) {
 }
 
 function normalizeOptions(options) {
-  const direction = numeric(options.direction ?? options.rotation, 0);
+  const direction = numeric(options.rotation ?? options.direction, 0);
   return {
     sprite: options.sprite || "",
     small: Boolean(options.small || options.s),
@@ -460,12 +709,11 @@ function parseHex(value) {
 }
 
 function rgbaToCanvas(item) {
-  const canvas = document.createElement("canvas");
-  canvas.width = item.width;
-  canvas.height = item.height;
-  const bytes = base64ToBytes(item.data);
-  canvas.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(bytes), item.width, item.height), 0, 0);
-  return canvas;
+  return {
+    width: item.width,
+    height: item.height,
+    data: base64ToBytes(item.data)
+  };
 }
 
 async function encodedToImage(item) {
