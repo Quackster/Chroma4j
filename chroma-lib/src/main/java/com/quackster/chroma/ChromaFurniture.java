@@ -88,14 +88,12 @@ public class ChromaFurniture {
         
         if (this.renderBackground) {
             try {
-                File bgFile = new File(CANVAS_PICTURE);
-                if (bgFile.exists()) {
-                    drawingCanvas = ImageIO.read(bgFile);
-                } else {
-                    drawingCanvas = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+                drawingCanvas = ImageIO.read(new File(CANVAS_PICTURE));
+                if (drawingCanvas == null) {
+                    throw new IOException("Unsupported background image: " + CANVAS_PICTURE);
                 }
             } catch (IOException e) {
-                drawingCanvas = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+                throw new RuntimeException(e);
             }
         } else {
             drawingCanvas = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
