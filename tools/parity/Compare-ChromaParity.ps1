@@ -398,9 +398,9 @@ server.listen(0, "127.0.0.1", async () => {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${port}/web/dist/index.html`);
     for (const item of cases) {
-      let dataUrl;
+      let renderResult;
       try {
-        dataUrl = await page.evaluate(async ({ item, port }) => {
+        renderResult = await page.evaluate(async ({ item, port }) => {
           const { loadChroma4j } = await import("./chroma4j.js");
           const chroma = await loadChroma4j({ basePath: "." });
           const result = await chroma.renderFromUrl(`http://127.0.0.1:${port}/${item.swfRelativePath}`, {
@@ -418,12 +418,31 @@ server.listen(0, "127.0.0.1", async () => {
             icon: item.icon,
             gif: item.wasmGif
           });
-          return result.dataUrl();
+          const dataUrl = result.dataUrl();
+          if (!item.assertResultApi) {
+            return { dataUrl };
+          }
+          const blob = await result.blob();
+          return {
+            dataUrl,
+            blobType: blob.type,
+            blobBytes: Array.from(new Uint8Array(await blob.arrayBuffer()))
+          };
         }, { item, port });
       } catch (error) {
         throw new Error(`${item.name}: ${error.message}`);
       }
-      fs.writeFileSync(item.wasmOutput, Buffer.from(dataUrl.split(",")[1], "base64"));
+      const pngBytes = Buffer.from(renderResult.dataUrl.split(",")[1], "base64");
+      if (item.assertResultApi) {
+        const blobBytes = Buffer.from(renderResult.blobBytes);
+        if (renderResult.blobType !== "image/png") {
+          throw new Error(`${item.name}: result.blob() returned ${renderResult.blobType}`);
+        }
+        if (!pngBytes.equals(blobBytes)) {
+          throw new Error(`${item.name}: result.blob() bytes differ from result.dataUrl() bytes`);
+        }
+      }
+      fs.writeFileSync(item.wasmOutput, pngBytes);
     }
   } catch (error) {
     exitCode = 1;
@@ -581,6 +600,7 @@ foreach ($case in $cases) {
         crop = $case.Crop
         small = $case.Small
         icon = $icon
+        assertResultApi = $case.Name -eq "rare_dragonlamp_d0"
         name = $case.Name
         wasmOutput = (Join-Path $output "$($case.Name)-wasm.png")
         expectedOutput = $csOutput
