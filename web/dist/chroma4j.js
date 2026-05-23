@@ -515,16 +515,31 @@ function drawAdd(ctx, source, x, y) {
       const sourceIndex = ((startY - y + row) * source.width + (startX - x + col)) * 4;
       const targetIndex = (row * width + col) * 4;
       if (source.data[sourceIndex + 3] === 0) continue;
-      const r = Math.min(255, bg.data[targetIndex] + source.data[sourceIndex]);
-      const g = Math.min(255, bg.data[targetIndex + 1] + source.data[sourceIndex + 1]);
-      const b = Math.min(255, bg.data[targetIndex + 2] + source.data[sourceIndex + 2]);
+      const sourceAlpha = source.data[sourceIndex + 3];
+      const bgAlpha = bg.data[targetIndex + 3];
+      const alpha = blendNormalAlpha(sourceAlpha, bgAlpha);
+      const r = blendAddChannel(source.data[sourceIndex], sourceAlpha, bg.data[targetIndex], bgAlpha, alpha);
+      const g = blendAddChannel(source.data[sourceIndex + 1], sourceAlpha, bg.data[targetIndex + 1], bgAlpha, alpha);
+      const b = blendAddChannel(source.data[sourceIndex + 2], sourceAlpha, bg.data[targetIndex + 2], bgAlpha, alpha);
       bg.data[targetIndex] = r;
       bg.data[targetIndex + 1] = g;
       bg.data[targetIndex + 2] = b;
-      bg.data[targetIndex + 3] = Math.min(255, Math.max(bg.data[targetIndex + 3], source.data[sourceIndex + 3]));
+      bg.data[targetIndex + 3] = alpha;
     }
   }
   ctx.putImageData(bg, startX, startY);
+}
+
+function blendAddChannel(fg, fgAlpha, bg, bgAlpha, alpha) {
+  if (alpha === 0) return 0;
+  const sourceAlpha = fgAlpha / 255;
+  const backgroundAlpha = bgAlpha / 255;
+  const outAlpha = alpha / 255;
+  const blended = Math.min(255, fg + bg);
+  const blendWeight = backgroundAlpha * sourceAlpha;
+  const backgroundWeight = backgroundAlpha - blendWeight;
+  const sourceWeight = sourceAlpha - blendWeight;
+  return Math.max(0, Math.min(255, Math.round((bg * backgroundWeight + fg * sourceWeight + blended * blendWeight) / outAlpha)));
 }
 
 function applyTint(imageData, color, alpha) {

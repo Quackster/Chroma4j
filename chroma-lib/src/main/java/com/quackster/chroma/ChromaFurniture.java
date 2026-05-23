@@ -699,17 +699,29 @@ public class ChromaFurniture {
                     continue;
                 }
                 
-                // Add Pin blending: Add RGB values and clamp to 255
-                int r = Math.min(255, bgColor.getRed() + fgColor.getRed());
-                int g = Math.min(255, bgColor.getGreen() + fgColor.getGreen());
-                int b = Math.min(255, bgColor.getBlue() + fgColor.getBlue());
-                
-                int alpha = Math.min(255, Math.max(bgColor.getAlpha(), fgColor.getAlpha()));
+                int alpha = blendNormalAlpha(fgColor.getAlpha(), bgColor.getAlpha());
+                int r = blendAddChannel(fgColor.getRed(), fgColor.getAlpha(), bgColor.getRed(), bgColor.getAlpha(), alpha);
+                int g = blendAddChannel(fgColor.getGreen(), fgColor.getAlpha(), bgColor.getGreen(), bgColor.getAlpha(), alpha);
+                int b = blendAddChannel(fgColor.getBlue(), fgColor.getAlpha(), bgColor.getBlue(), bgColor.getAlpha(), alpha);
                 
                 Color blendedColor = new Color(r, g, b, alpha);
                 canvas.setRGB(cx, cy, blendedColor.getRGB());
             }
         }
+    }
+
+    private int blendAddChannel(int fg, int fgAlpha, int bg, int bgAlpha, int alpha) {
+        if (alpha == 0) {
+            return 0;
+        }
+        double sourceAlpha = fgAlpha / 255.0;
+        double backgroundAlpha = bgAlpha / 255.0;
+        double outAlpha = alpha / 255.0;
+        double blended = Math.min(255, fg + bg);
+        double blendWeight = backgroundAlpha * sourceAlpha;
+        double backgroundWeight = backgroundAlpha - blendWeight;
+        double sourceWeight = sourceAlpha - blendWeight;
+        return clampChannel((int) Math.round((bg * backgroundWeight + fg * sourceWeight + blended * blendWeight) / outAlpha));
     }
 
     private BufferedImage copyImage(BufferedImage source) {
