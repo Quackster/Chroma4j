@@ -121,10 +121,8 @@ public class FileUtil {
      * @return The corresponding lowercase letter
      */
     public static String numericLetter(int animationLayer) {
-        if (animationLayer < 0 || animationLayer >= 26) {
-            return "";
-        }
-        return String.valueOf((char) ('a' + animationLayer));
+        char[] alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toLowerCase().toCharArray();
+        return String.valueOf(alphabet[animationLayer]).toLowerCase();
     }
     
     /**
