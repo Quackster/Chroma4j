@@ -170,7 +170,7 @@ Current parity-sensitive fixtures include:
 - `rare_dragonlamp`, small render, icon render, ignored `gif` option, shadow render, background render, no-crop colored canvas render including explicit empty canvas, short HTML hex, invalid leading-hash fallback, and endpoint-style `state` / `bg` normalization.
 - `rare_parasol`, state `1`, direction `4`, which covers translucent alpha blending and final crop/export behavior.
 - `rare_parasol`, state `1`, direction `4`, with shadows enabled.
-- `throne`, `club_sofa`, `rare_hammock`, `rare_icecream`, `rare_icecream_campaign`, `doorB`, and `rare_fountain` to broaden direction, small, color, shadow, endpoint-style color/rotation normalization, stateful furni, max-state fallback such as `state=99`, and simple static furni coverage.
+- `throne`, `club_sofa`, `rare_hammock`, `rare_icecream`, `rare_icecream_campaign`, `doorB`, and `rare_fountain` to broaden direction, small, WASM `s` alias, color, shadow, endpoint-style color/rotation normalization including valid rotation override, stateful furni, max-state fallback such as `state=99`, and simple static furni coverage.
 
 ## Build The Spring Webapp
 

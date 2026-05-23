@@ -438,7 +438,8 @@ server.listen(0, "127.0.0.1", async () => {
             background: item.wasmBackground ?? item.background,
             canvas: item.canvas === "__CHROMA_EMPTY__" ? "" : item.canvas,
             crop: item.crop,
-            small: item.small,
+            small: item.wasmSmall ?? item.small,
+            s: item.wasmS,
             icon: item.icon,
             gif: item.wasmGif
           };
@@ -519,9 +520,11 @@ $cases = @(
     [pscustomobject]@{ Name = "rare_parasol_alpha"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_parasol.swf"; Swf = "rare_parasol.swf"; Small = $false; State = 1; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_parasol_shadow"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_parasol.swf"; Swf = "rare_parasol.swf"; Small = $false; State = 1; Direction = 4; Color = 0; Shadow = $true; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "throne_d2"; Url = "https://images.classichabbo.com/dcr/hof_furni/throne.swf"; Swf = "throne.swf"; Small = $false; State = 0; Direction = 2; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
+    [pscustomobject]@{ Name = "throne_rotation_override"; Url = "https://images.classichabbo.com/dcr/hof_furni/throne.swf"; Swf = "throne.swf"; Small = $false; State = 0; Direction = 4; WasmDirection = 2; WasmRotation = "4"; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "throne_rotation_invalid"; Url = "https://images.classichabbo.com/dcr/hof_furni/throne.swf"; Swf = "throne.swf"; Small = $false; State = 0; Direction = 2; WasmRotation = "2abc"; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "throne_d4"; Url = "https://images.classichabbo.com/dcr/hof_furni/throne.swf"; Swf = "throne.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "throne_small_d2"; Url = "https://images.classichabbo.com/dcr/hof_furni/throne.swf"; Swf = "throne.swf"; Small = $true; State = 0; Direction = 2; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
+    [pscustomobject]@{ Name = "throne_small_s_alias"; Url = "https://images.classichabbo.com/dcr/hof_furni/throne.swf"; Swf = "throne.swf"; Small = $true; WasmSmall = $false; WasmS = "true"; State = 0; Direction = 2; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "club_sofa_d2"; Url = "https://images.classichabbo.com/dcr/hof_furni/club_sofa.swf"; Swf = "club_sofa.swf"; Small = $false; State = 0; Direction = 2; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "club_sofa_color1"; Url = "https://images.classichabbo.com/dcr/hof_furni/club_sofa.swf"; Swf = "club_sofa.swf"; Small = $false; State = 0; Direction = 2; Color = 1; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "club_sofa_color20"; Url = "https://images.classichabbo.com/dcr/hof_furni/club_sofa.swf"; Swf = "club_sofa.swf"; Small = $false; State = 0; Direction = 2; Color = 0; WasmColor = 20; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
@@ -628,6 +631,8 @@ foreach ($case in $cases) {
         wasmBackground = Get-CaseProperty $case "WasmBackground"
         wasmBg = Get-CaseProperty $case "WasmBg"
         wasmGif = Get-CaseProperty $case "WasmGif"
+        wasmSmall = Get-CaseProperty $case "WasmSmall"
+        wasmS = Get-CaseProperty $case "WasmS"
         canvas = $case.Canvas
         crop = $case.Crop
         small = $case.Small
