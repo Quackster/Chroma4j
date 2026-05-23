@@ -1005,6 +1005,10 @@ public class ChromaFurniture {
     }
 
     public static Color hexToColor(String hexString) {
+        if (hexString == null) {
+            throw new NullPointerException("hexString");
+        }
+
         if ("transparent".equalsIgnoreCase(hexString)) {
             return new Color(0, 0, 0, 0);
         }
