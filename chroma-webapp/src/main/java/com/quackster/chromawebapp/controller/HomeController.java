@@ -43,55 +43,27 @@ public class HomeController {
             @RequestParam(name = "gif", required = false) String gif
     ) {
 
-        boolean isSmallFurni = parseBoolean(small) || parseBoolean(s);
-        int renderState = parseNumeric(state, 0);
-        int renderDirection = parseNumeric(direction, 0);
-        if (rotation != null && !rotation.isEmpty()) {
-            renderDirection = parseNumeric(rotation, renderDirection);
-        }
-        int colorId = 0;
-        if (isNumeric(color)) {
-            colorId = parseNumeric(color, 0);
-            if (colorId >= 16) {
-                colorId = 0;
-            }
-        }
-        if (isNumeric(colour)) {
-            colorId = parseNumeric(colour, colorId);
-            if (colorId >= 16) {
-                colorId = 0;
-            }
-        }
-        boolean renderBackground = false;
-        if (bg != null) {
-            renderBackground = !("0".equals(bg) || "false".equals(bg));
-        }
-        boolean renderShadows = parseBoolean(shadow);
-        boolean cropImage = true;
-        if (crop != null) {
-            cropImage = parseBoolean(crop);
-        }
-        String renderCanvasColour = "transparent";
-        if (canvas != null) {
-            renderCanvasColour = canvas;
-        }
-        boolean renderIcon = parseBoolean(icon);
-
-        if (renderState >= 101) {
-            renderState = 0;
-        }
-        if (colorId >= 16) {
-            colorId = 0;
-        }
+        RenderRequestOptions options = RenderRequestOptions.from(
+                sprite,
+                small,
+                s,
+                state,
+                direction,
+                rotation,
+                color,
+                colour,
+                bg,
+                crop,
+                shadow,
+                canvas,
+                icon
+        );
 
         if (sprite == null || sprite.isEmpty()) {
             return null;
         }
 
-        String fileNameUnique = sprite + csharpBool(isSmallFurni) + renderState + renderDirection +
-                              colorId + csharpBool(renderShadows) + csharpBool(renderBackground) +
-                              renderCanvasColour + csharpBool(cropImage) + csharpBool(renderIcon);
-        String hashedUniqueName = hash(fileNameUnique);
+        String hashedUniqueName = options.cacheHash();
 
         Path exportDir = Paths.get("furni_export", sprite, "export");
         Path cachedImagePath = exportDir.resolve(hashedUniqueName + ".png");
@@ -105,15 +77,15 @@ public class HomeController {
                 String swfPath = "swfs/hof_furni/" + sprite + ".swf";
                 ChromaFurniture furni = new ChromaFurniture(
                         swfPath,
-                        isSmallFurni,
-                        renderState,
-                        renderDirection,
-                        colorId,
-                        renderShadows,
-                        renderBackground,
-                        renderCanvasColour,
-                        cropImage,
-                        renderIcon
+                        options.isSmallFurni(),
+                        options.renderState(),
+                        options.renderDirection(),
+                        options.colorId(),
+                        options.renderShadows(),
+                        options.renderBackground(),
+                        options.renderCanvasColour(),
+                        options.cropImage(),
+                        options.renderIcon()
                 );
 
                 furni.run();
@@ -136,17 +108,11 @@ public class HomeController {
         return null;
     }
     
-    /**
-     * Parses a string parameter as a boolean
-     */
-    private boolean parseBoolean(String value) {
+    static boolean parseBoolean(String value) {
         return "1".equals(value) || "true".equals(value);
     }
     
-    /**
-     * Parses a numeric string parameter
-     */
-    private int parseNumeric(String value, int defaultValue) {
+    static int parseNumeric(String value, int defaultValue) {
         if (!isNumeric(value)) {
             return defaultValue;
         }
@@ -154,7 +120,7 @@ public class HomeController {
         return Integer.parseInt(value.trim());
     }
 
-    private boolean isNumeric(String value) {
+    static boolean isNumeric(String value) {
         if (value == null || value.trim().isEmpty()) {
             return false;
         }
@@ -174,7 +140,7 @@ public class HomeController {
     /**
      * Creates a SHA-1 hash of the input string
      */
-    private static String hash(String input) {
+    static String hash(String input) {
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
             byte[] hash = sha1.digest(input.getBytes(StandardCharsets.UTF_8));
@@ -187,6 +153,101 @@ public class HomeController {
             return sb.toString();
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-1 algorithm not available", e);
+        }
+    }
+
+    record RenderRequestOptions(
+            String sprite,
+            boolean isSmallFurni,
+            int renderState,
+            int renderDirection,
+            int colorId,
+            boolean renderShadows,
+            boolean renderBackground,
+            String renderCanvasColour,
+            boolean cropImage,
+            boolean renderIcon
+    ) {
+        static RenderRequestOptions from(
+                String sprite,
+                String small,
+                String s,
+                String state,
+                String direction,
+                String rotation,
+                String color,
+                String colour,
+                String bg,
+                String crop,
+                String shadow,
+                String canvas,
+                String icon
+        ) {
+            boolean isSmallFurni = parseBoolean(small) || parseBoolean(s);
+            int renderState = parseNumeric(state, 0);
+            int renderDirection = parseNumeric(direction, 0);
+            if (rotation != null && !rotation.isEmpty()) {
+                renderDirection = parseNumeric(rotation, renderDirection);
+            }
+
+            int colorId = 0;
+            if (isNumeric(color)) {
+                colorId = parseNumeric(color, 0);
+                if (colorId >= 16) {
+                    colorId = 0;
+                }
+            }
+            if (isNumeric(colour)) {
+                colorId = parseNumeric(colour, colorId);
+                if (colorId >= 16) {
+                    colorId = 0;
+                }
+            }
+
+            boolean renderBackground = false;
+            if (bg != null) {
+                renderBackground = !("0".equals(bg) || "false".equals(bg));
+            }
+            boolean renderShadows = parseBoolean(shadow);
+            boolean cropImage = true;
+            if (crop != null) {
+                cropImage = parseBoolean(crop);
+            }
+            String renderCanvasColour = "transparent";
+            if (canvas != null) {
+                renderCanvasColour = canvas;
+            }
+            boolean renderIcon = parseBoolean(icon);
+
+            if (renderState >= 101) {
+                renderState = 0;
+            }
+            if (colorId >= 16) {
+                colorId = 0;
+            }
+
+            return new RenderRequestOptions(
+                    sprite,
+                    isSmallFurni,
+                    renderState,
+                    renderDirection,
+                    colorId,
+                    renderShadows,
+                    renderBackground,
+                    renderCanvasColour,
+                    cropImage,
+                    renderIcon
+            );
+        }
+
+        String cacheKey() {
+            return sprite + csharpBool(isSmallFurni) + renderState + renderDirection +
+                    colorId + csharpBool(renderShadows) + csharpBool(renderBackground) +
+                    renderCanvasColour + csharpBool(cropImage) + csharpBool(renderIcon);
+        }
+
+        String cacheHash() {
+            return hash(cacheKey());
         }
     }
 }
