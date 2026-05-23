@@ -161,7 +161,7 @@ The runner downloads its SWF fixtures into `build/parity`, builds a temporary C#
 Current parity-sensitive fixtures include:
 
 - `rare_dragonlamp`, directions `2` and `4`, which must be exact.
-- `rare_dragonlamp`, small render, icon render, shadow render, background render, no-crop colored canvas render including short HTML hex, and endpoint-style `state` / `bg` normalization.
+- `rare_dragonlamp`, small render, icon render, shadow render, background render, no-crop colored canvas render including short HTML hex and invalid leading-hash fallback, and endpoint-style `state` / `bg` normalization.
 - `rare_parasol`, state `1`, direction `4`, which covers translucent alpha blending and final crop/export behavior.
 - `rare_parasol`, state `1`, direction `4`, with shadows enabled.
 - `throne`, `club_sofa`, `rare_hammock`, `rare_icecream`, `rare_icecream_campaign`, `doorB`, and `rare_fountain` to broaden direction, small, color, shadow, endpoint-style color/rotation normalization, stateful furni, and simple static furni coverage.

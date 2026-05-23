@@ -632,7 +632,8 @@ function fillCanvas(ctx, canvas, color, background) {
   if (background) {
     ctx.drawImage(background, 0, 0);
   } else if ((color || "transparent").toLowerCase() !== "transparent") {
-    ctx.fillStyle = color.startsWith("#") ? color : `#${color}`;
+    const fill = parseCanvasColor(color);
+    ctx.fillStyle = `rgba(${fill.r}, ${fill.g}, ${fill.b}, ${fill.a / 255})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 }
