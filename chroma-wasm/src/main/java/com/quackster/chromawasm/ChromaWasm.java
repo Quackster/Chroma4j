@@ -1,4 +1,4 @@
-package com.quackster.chroma4jwasm;
+package com.quackster.chromawasm;
 
 import org.teavm.jso.JSExport;
 
@@ -12,8 +12,8 @@ import java.util.Map;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
-public final class Chroma4jWasm {
-    private Chroma4jWasm() {
+public final class ChromaWasm {
+    private ChromaWasm() {
     }
 
     public static void main(String[] args) {

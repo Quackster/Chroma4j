@@ -11,7 +11,7 @@ dependencies {
 
 teavm {
     all {
-        mainClass = "com.quackster.chroma4jwasm.Chroma4jWasm"
+        mainClass = "com.quackster.chromawasm.ChromaWasm"
         debugInformation = false
         fastGlobalAnalysis = true
         outputDir = file("${rootDir}/web/dist")
