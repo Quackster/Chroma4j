@@ -1,2 +1,5 @@
-/chroma-lib/target
-/chroma-webapp/target
+/.gradle
+/build
+/chroma-lib/build
+/chroma-webapp/build
+/chroma-wasm/build

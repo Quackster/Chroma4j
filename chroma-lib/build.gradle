@@ -1,0 +1,8 @@
+plugins {
+    id "java-library"
+}
+
+dependencies {
+    implementation "com.jpexs:ffdec-lib:18.4.1"
+    implementation "com.madgag:animated-gif-lib:1.4"
+}

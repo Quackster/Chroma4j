@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+        maven {
+            name = "ffdec"
+            url = uri("https://github.com/Arakne/SwfMapLoader/raw/master/lib")
+        }
+    }
+}
+
+rootProject.name = "chroma4j"
+
+include "chroma-lib"
+include "chroma-webapp"
+include "chroma-wasm"

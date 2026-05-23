@@ -1,0 +1,36 @@
+plugins {
+    id "java"
+    id "org.teavm"
+}
+
+dependencies {
+    implementation teavm.libs.jso
+    implementation teavm.libs.jsoApis
+    implementation "org.teavm:teavm-core:0.14.0"
+}
+
+teavm {
+    all {
+        mainClass = "com.quackster.chroma4jwasm.Chroma4jWasm"
+        debugInformation = false
+        fastGlobalAnalysis = true
+        outputDir = file("${rootDir}/web/dist")
+    }
+
+    wasmGC {
+        targetFileName = "chroma4j.wasm"
+        relativePathInOutputDir = "wasm-gc"
+        copyRuntime = true
+        obfuscated = true
+        sourceMap = false
+        strict = true
+    }
+}
+
+tasks.named("assemble") {
+    dependsOn tasks.named("buildWasmGC")
+}
+
+tasks.named("clean") {
+    delete file("${rootDir}/web/dist/wasm-gc")
+}
