@@ -771,7 +771,11 @@ function numberAttr(node, name, fallback) {
 }
 
 function requiredNumberAttr(node, name) {
-  return numeric(requiredAttr(node, name), 0);
+  const value = csharpInt(requiredAttr(node, name));
+  if (value === undefined) {
+    throw new Error("Input string was not in a correct format.");
+  }
+  return value;
 }
 
 function normalizeName(sprite, value) {
