@@ -194,19 +194,20 @@ public class ChromaFurniture {
                 Node sizeAttr = viz.getAttributes().getNamedItem("size");
                 
                 if (sizeAttr != null && sizeAttr.getNodeValue().equals(size)) {
-                    NodeList animations = ((org.w3c.dom.Element) viz).getElementsByTagName("animation");
-                    if (animations.getLength() > 0) {
+                    Node animationsNode = firstDirectChild(viz, "animations");
+                    if (animationsNode != null) {
+                        NodeList animations = directChildren(animationsNode, "animation");
                         // Collect all frame nodes
                         List<Node> frameNodes = new ArrayList<>();
                         for (int j = 0; j < animations.getLength(); j++) {
                             Node anim = animations.item(j);
-                            NodeList animLayers = ((org.w3c.dom.Element) anim).getElementsByTagName("animationLayer");
+                            NodeList animLayers = directChildren(anim, "animationLayer");
                             for (int k = 0; k < animLayers.getLength(); k++) {
                                 Node animLayer = animLayers.item(k);
-                                NodeList frameSeqs = ((org.w3c.dom.Element) animLayer).getElementsByTagName("frameSequence");
+                                NodeList frameSeqs = directChildren(animLayer, "frameSequence");
                                 for (int l = 0; l < frameSeqs.getLength(); l++) {
                                     Node frameSeq = frameSeqs.item(l);
-                                    NodeList frames = ((org.w3c.dom.Element) frameSeq).getElementsByTagName("frame");
+                                    NodeList frames = directChildren(frameSeq, "frame");
                                     for (int m = 0; m < frames.getLength(); m++) {
                                         frameNodes.add(frames.item(m));
                                     }
@@ -319,7 +320,8 @@ public class ChromaFurniture {
 
     private NodeList findAnimations(Document xmlData, String size) {
         try {
-            List<Node> animNodes = new ArrayList<>();
+            List<Node> globalAnimations = new ArrayList<>();
+            List<Node> directionAnimations = new ArrayList<>();
             NodeList visualizations = xmlData.getElementsByTagName("visualization");
             
             for (int i = 0; i < visualizations.getLength(); i++) {
@@ -327,18 +329,70 @@ public class ChromaFurniture {
                 Node sizeAttr = viz.getAttributes().getNamedItem("size");
                 
                 if (sizeAttr != null && sizeAttr.getNodeValue().equals(size)) {
-                    NodeList anims = ((org.w3c.dom.Element) viz).getElementsByTagName("animation");
-                    for (int j = 0; j < anims.getLength(); j++) {
-                        animNodes.add(anims.item(j));
+                    Node animationsNode = firstDirectChild(viz, "animations");
+                    if (animationsNode != null) {
+                        NodeList anims = directChildren(animationsNode, "animation");
+                        for (int j = 0; j < anims.getLength(); j++) {
+                            globalAnimations.add(anims.item(j));
+                        }
+                    }
+
+                    Node directionsNode = firstDirectChild(viz, "directions");
+                    if (directionsNode != null) {
+                        NodeList directions = directChildren(directionsNode, "direction");
+                        for (int j = 0; j < directions.getLength(); j++) {
+                            Node direction = directions.item(j);
+                            Node idAttr = direction.getAttributes().getNamedItem("id");
+                            if (idAttr != null && idAttr.getNodeValue().equals(String.valueOf(renderDirection))) {
+                                Node directionAnimationsNode = firstDirectChild(direction, "animations");
+                                if (directionAnimationsNode != null) {
+                                    NodeList anims = directChildren(directionAnimationsNode, "animation");
+                                    for (int k = 0; k < anims.getLength(); k++) {
+                                        directionAnimations.add(anims.item(k));
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-            
-            return animNodes.isEmpty() ? null : new NodeListWrapper(animNodes);
+
+            if (!globalAnimations.isEmpty()) {
+                return new NodeListWrapper(globalAnimations);
+            }
+            return directionAnimations.isEmpty() ? null : new NodeListWrapper(directionAnimations);
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
+    }
+
+    private static Node firstDirectChild(Node parent, String name) {
+        if (parent == null) {
+            return null;
+        }
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child.getNodeType() == Node.ELEMENT_NODE && child.getNodeName().equals(name)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private static NodeList directChildren(Node parent, String name) {
+        List<Node> nodes = new ArrayList<>();
+        if (parent != null) {
+            NodeList children = parent.getChildNodes();
+            for (int i = 0; i < children.getLength(); i++) {
+                Node child = children.item(i);
+                if (child.getNodeType() == Node.ELEMENT_NODE && child.getNodeName().equals(name)) {
+                    nodes.add(child);
+                }
+            }
+        }
+        return new NodeListWrapper(nodes);
     }
 
     private void createAsset(ChromaAsset chromaAsset, Node node, boolean createFiles) {

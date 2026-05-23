@@ -143,19 +143,20 @@ public class ChromaAsset {
                 
                 if (sizeAttr != null && sizeAttr.getNodeValue().equals(size)) {
                     if (direction == null) {
-                        NodeList layersNodes = ((org.w3c.dom.Element) viz).getElementsByTagName("layers");
-                        if (layersNodes.getLength() > 0) {
-                            return ((org.w3c.dom.Element) layersNodes.item(0)).getElementsByTagName("layer");
+                        Node layersNode = firstDirectChild(viz, "layers");
+                        if (layersNode != null) {
+                            return directChildren(layersNode, "layer");
                         }
                     } else {
-                        NodeList directions = ((org.w3c.dom.Element) viz).getElementsByTagName("direction");
+                        Node directionsNode = firstDirectChild(viz, "directions");
+                        NodeList directions = directChildren(directionsNode, "direction");
                         for (int j = 0; j < directions.getLength(); j++) {
                             Node dir = directions.item(j);
                             Node idAttr = dir.getAttributes().getNamedItem("id");
                             if (idAttr != null && idAttr.getNodeValue().equals(direction)) {
-                                NodeList layersNodes = ((org.w3c.dom.Element) dir).getElementsByTagName("layers");
-                                if (layersNodes.getLength() > 0) {
-                                    return ((org.w3c.dom.Element) layersNodes.item(0)).getElementsByTagName("layer");
+                                Node layersNode = firstDirectChild(dir, "layers");
+                                if (layersNode != null) {
+                                    return directChildren(layersNode, "layer");
                                 }
                             }
                         }
@@ -176,14 +177,14 @@ public class ChromaAsset {
                 Node sizeAttr = viz.getAttributes().getNamedItem("size");
                 
                 if (sizeAttr != null && sizeAttr.getNodeValue().equals(size)) {
-                    NodeList colorsNodes = ((org.w3c.dom.Element) viz).getElementsByTagName("colors");
-                    if (colorsNodes.getLength() > 0) {
-                        NodeList colors = ((org.w3c.dom.Element) colorsNodes.item(0)).getElementsByTagName("color");
+                    Node colorsNode = firstDirectChild(viz, "colors");
+                    if (colorsNode != null) {
+                        NodeList colors = directChildren(colorsNode, "color");
                         for (int j = 0; j < colors.getLength(); j++) {
                             Node color = colors.item(j);
                             Node idAttr = color.getAttributes().getNamedItem("id");
                             if (idAttr != null && idAttr.getNodeValue().equals(String.valueOf(colorId))) {
-                                NodeList colorLayers = ((org.w3c.dom.Element) color).getElementsByTagName("colorLayer");
+                                NodeList colorLayers = directChildren(color, "colorLayer");
                                 for (int k = 0; k < colorLayers.getLength(); k++) {
                                     Node colorLayer = colorLayers.item(k);
                                     Node layerIdAttr = colorLayer.getAttributes().getNamedItem("id");
@@ -211,6 +212,44 @@ public class ChromaAsset {
             e.printStackTrace();
         }
         return null;
+    }
+
+    private static Node firstDirectChild(Node parent, String name) {
+        if (parent == null) {
+            return null;
+        }
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child.getNodeType() == Node.ELEMENT_NODE && child.getNodeName().equals(name)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private static NodeList directChildren(Node parent, String name) {
+        java.util.List<Node> nodes = new java.util.ArrayList<>();
+        if (parent != null) {
+            NodeList children = parent.getChildNodes();
+            for (int i = 0; i < children.getLength(); i++) {
+                Node child = children.item(i);
+                if (child.getNodeType() == Node.ELEMENT_NODE && child.getNodeName().equals(name)) {
+                    nodes.add(child);
+                }
+            }
+        }
+        return new NodeList() {
+            @Override
+            public Node item(int index) {
+                return index >= 0 && index < nodes.size() ? nodes.get(index) : null;
+            }
+
+            @Override
+            public int getLength() {
+                return nodes.size();
+            }
+        };
     }
 
     public void generateImage() {

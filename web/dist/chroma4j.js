@@ -173,9 +173,10 @@ function readLayers(doc, size, direction) {
   const result = new Map();
   const visualization = [...doc.getElementsByTagName("visualization")].find(node => attr(node, "size") === size);
   if (!visualization) return result;
-  const baseLayers = visualization.getElementsByTagName("layers")[0]?.getElementsByTagName("layer") || [];
-  const directionNode = [...visualization.getElementsByTagName("direction")].find(node => attr(node, "id") === String(direction));
-  const directionLayers = directionNode?.getElementsByTagName("layers")[0]?.getElementsByTagName("layer") || [];
+  const baseLayers = childElements(firstChildElement(visualization, "layers"), "layer");
+  const directionsNode = firstChildElement(visualization, "directions");
+  const directionNode = childElements(directionsNode, "direction").find(node => attr(node, "id") === String(direction));
+  const directionLayers = childElements(firstChildElement(directionNode, "layers"), "layer");
   const layerNodes = baseLayers.length > 0 ? baseLayers : directionLayers;
   for (const layer of layerNodes) {
     const id = numberAttr(layer, "id", -1);
@@ -194,9 +195,10 @@ function readColorLayers(doc, size, colorId) {
   const result = new Map();
   const visualization = [...doc.getElementsByTagName("visualization")].find(node => attr(node, "size") === size);
   if (!visualization) return result;
-  const color = [...visualization.getElementsByTagName("color")].find(node => attr(node, "id") === String(colorId));
+  const colorsNode = firstChildElement(visualization, "colors");
+  const color = childElements(colorsNode, "color").find(node => attr(node, "id") === String(colorId));
   if (!color) return result;
-  for (const layer of color.getElementsByTagName("colorLayer")) {
+  for (const layer of childElements(color, "colorLayer")) {
     result.set(numberAttr(layer, "id", -1), attr(layer, "color"));
   }
   return result;
@@ -206,16 +208,26 @@ function readAnimationFrames(doc, size, state) {
   const result = new Map();
   const visualization = [...doc.getElementsByTagName("visualization")].find(node => attr(node, "size") === size);
   if (!visualization) return result;
-  const animation = [...visualization.getElementsByTagName("animation")].find(node => attr(node, "id") === String(state));
+  const animationsNode = firstChildElement(visualization, "animations");
+  const animation = childElements(animationsNode, "animation").find(node => attr(node, "id") === String(state));
   if (!animation) return result;
-  for (const layer of animation.getElementsByTagName("animationLayer")) {
+  for (const layer of childElements(animation, "animationLayer")) {
     const id = numberAttr(layer, "id", -1);
-    const frame = layer.getElementsByTagName("frame")[0];
+    const frame = childElements(firstChildElement(layer, "frameSequence"), "frame")[0];
     if (id >= 0 && frame) {
       result.set(id, numberAttr(frame, "id", 0));
     }
   }
   return result;
+}
+
+function firstChildElement(node, name) {
+  return childElements(node, name)[0];
+}
+
+function childElements(node, name) {
+  if (!node) return [];
+  return [...node.children].filter(child => child.tagName === name);
 }
 
 async function decodeImages(items) {
