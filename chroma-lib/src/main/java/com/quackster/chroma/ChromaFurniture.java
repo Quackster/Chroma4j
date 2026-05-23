@@ -158,11 +158,7 @@ public class ChromaFurniture {
                 Node frame = frames.item(i);
                 
                 Node animationLayerNode = frame.getParentNode().getParentNode();
-                Node layerIdAttr = animationLayerNode.getAttributes().getNamedItem("id");
-                
-                if (layerIdAttr == null) continue;
-                
-                int letterPosition = Integer.parseInt(layerIdAttr.getNodeValue());
+                int letterPosition = Integer.parseInt(animationLayerNode.getAttributes().getNamedItem("id").getNodeValue());
                 
                 if (letterPosition < 0 || letterPosition > 26) {
                     continue;
@@ -172,11 +168,7 @@ public class ChromaFurniture {
                 highestAnimationLayer = letterPosition + 1;
                 
                 Node animationNode = animationLayerNode.getParentNode();
-                Node animIdAttr = animationNode.getAttributes().getNamedItem("id");
-                
-                if (animIdAttr == null) continue;
-                
-                int animationId = Integer.parseInt(animIdAttr.getNodeValue());
+                int animationId = Integer.parseInt(animationNode.getAttributes().getNamedItem("id").getNodeValue());
                 int castAnimationId = animationId + 1;
                 
                 if (castAnimationId > this.animationCount) {
@@ -202,10 +194,7 @@ public class ChromaFurniture {
                     }
                 }
                 
-                Node frameIdAttr = frame.getAttributes().getNamedItem("id");
-                if (frameIdAttr != null) {
-                    this.animations.get(animationLetter).getStates().get(animationId).getFrames().add(frameIdAttr.getNodeValue());
-                }
+                this.animations.get(animationLetter).getStates().get(animationId).getFrames().add(frame.getAttributes().getNamedItem("id").getNodeValue());
             }
         }
     }
@@ -302,13 +291,9 @@ public class ChromaFurniture {
         if (animations != null) {
             for (int i = 0; i < animations.getLength(); i++) {
                 Node animation = animations.item(i);
-                Node idAttr = animation.getAttributes().getNamedItem("id");
-
-                if (idAttr != null) {
-                    int state = Integer.parseInt(idAttr.getNodeValue());
-                    if (state > maxStates) {
-                        maxStates = state;
-                    }
+                int state = Integer.parseInt(animation.getAttributes().getNamedItem("id").getNodeValue());
+                if (state > maxStates) {
+                    maxStates = state;
                 }
             }
         }

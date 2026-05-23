@@ -108,6 +108,8 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
     if (!imageEntry) return null;
 
     const layerInfo = layers.get(parsed.layer) || {};
+    const colorLayer = colorLayers.get(String(parsed.layer));
+    if (colorLayer && !colorLayer.hasAttribute("color")) return null;
     return {
       name,
       image: imageEntry.image,
@@ -120,7 +122,7 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
       frame: parsed.frame,
       ink: layerInfo.ink,
       alpha: layerInfo.alpha,
-      color: colorLayers.get(String(parsed.layer)),
+      color: colorLayer ? attr(colorLayer, "color") : "",
       shadow: name.includes("_sd_")
     };
   }).filter(Boolean);
@@ -192,7 +194,7 @@ function readColorLayers(doc, size, colorId) {
   const color = childElements(colorsNode, "color").find(node => attr(node, "id") === String(colorId));
   if (!color) return result;
   for (const layer of childElements(color, "colorLayer")) {
-    result.set(attr(layer, "id"), attr(layer, "color"));
+    result.set(attr(layer, "id"), layer);
   }
   return result;
 }

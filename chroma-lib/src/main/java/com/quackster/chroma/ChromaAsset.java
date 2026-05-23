@@ -73,11 +73,7 @@ public class ChromaAsset {
             if (visualisationLayers != null) {
                 for (int i = 0; i < visualisationLayers.getLength(); i++) {
                     Node layerNode = visualisationLayers.item(i);
-                    Node idAttr = layerNode.getAttributes().getNamedItem("id");
-                    
-                    if (idAttr == null) continue;
-                    
-                    int animationLayer = Integer.parseInt(idAttr.getNodeValue());
+                    int animationLayer = Integer.parseInt(layerNode.getAttributes().getNamedItem("id").getNodeValue());
 
                     if (animationLayer == this.layer) {
                         Node inkAttr = layerNode.getAttributes().getNamedItem("ink");
@@ -111,10 +107,7 @@ public class ChromaAsset {
                 NodeList colorLayers = findColorLayers(xmlData, size, chromaFurniture.getColourId(), layer);
                 
                 if (colorLayers != null && colorLayers.getLength() > 0) {
-                    Node colorAttr = colorLayers.item(0).getAttributes().getNamedItem("color");
-                    if (colorAttr != null) {
-                        colourCode = colorAttr.getNodeValue();
-                    }
+                    colourCode = colorLayers.item(0).getAttributes().getNamedItem("color").getNodeValue();
                 }
             }
 
