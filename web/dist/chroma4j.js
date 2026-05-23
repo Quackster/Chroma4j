@@ -150,7 +150,7 @@ function collectWithDirectionFallback(sprite, assetsXml, visualizationXml, image
   if (preferred.length || options.icon) {
     return preferred;
   }
-  if (options.direction === 0) {
+  if (options.direction === 0 && (sprite || "").toLowerCase() === "rare_dragonlamp") {
     const mirrored = collectRenderAssets(sprite, assetsXml, visualizationXml, images, { ...options, direction: 4 });
     if (mirrored.length) {
       options.direction = 4;

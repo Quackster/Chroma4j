@@ -687,7 +687,7 @@ public class ChromaFurniture {
             return validDirections;
         }
 
-        if (requestedDirection == 0) {
+        if (requestedDirection == 0 && "rare_dragonlamp".equalsIgnoreCase(sprite)) {
             validDirections = candidates.stream().filter(x -> x.getDirection() == 4).collect(Collectors.toList());
             if (!validDirections.isEmpty()) {
                 renderDirection = 4;
