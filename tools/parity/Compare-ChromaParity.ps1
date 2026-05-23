@@ -407,6 +407,19 @@ server.listen(0, "127.0.0.1", async () => {
     browser = await chromium.launch({ headless: true, executablePath: chromePath });
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${port}/web/dist/index.html`);
+    const invalidRejected = await page.evaluate(async () => {
+      const { loadChroma4j } = await import("./chroma4j.js");
+      const chroma = await loadChroma4j({ basePath: "." });
+      try {
+        await chroma.renderFromBytes(new Uint8Array([110, 111, 116, 45, 97, 45, 115, 119, 102]).buffer, { sprite: "bad" });
+        return false;
+      } catch (error) {
+        return error instanceof Error && error.message.length > 0;
+      }
+    });
+    if (!invalidRejected) {
+      throw new Error("renderFromBytes accepted invalid SWF bytes");
+    }
     for (const item of cases) {
       let renderResult;
       try {
