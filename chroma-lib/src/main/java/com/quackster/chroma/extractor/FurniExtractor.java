@@ -80,18 +80,20 @@ public class FurniExtractor {
                 if (tag instanceof DefineBinaryDataTag) {
                     DefineBinaryDataTag dataTag = (DefineBinaryDataTag) tag;
 
-                    if (symbolClass.containsKey(dataTag.getCharacterId())) {
-                        String name = symbolClass.get(dataTag.getCharacterId());
-                        String[] parts = name.split("_");
-                        String type = parts[parts.length - 1];
+                    String name = symbolClass.get(dataTag.getCharacterId());
+                    if (name == null) {
+                        throw new IllegalStateException("No SymbolClass entry for binary data " + dataTag.getCharacterId());
+                    }
 
-                        byte[] data = dataTag.binaryData.getRangeData();
-                        String txt = new String(data, StandardCharsets.UTF_8);
+                    String[] parts = name.split("_");
+                    String type = parts[parts.length - 1];
 
-                        Path xmlFile = xmlDir.resolve(type + ".xml");
-                        if (!Files.exists(xmlFile)) {
-                            Files.writeString(xmlFile, txt, StandardCharsets.UTF_8);
-                        }
+                    byte[] data = dataTag.binaryData.getRangeData();
+                    String txt = new String(data, StandardCharsets.UTF_8);
+
+                    Path xmlFile = xmlDir.resolve(type + ".xml");
+                    if (!Files.exists(xmlFile)) {
+                        Files.writeString(xmlFile, txt, StandardCharsets.UTF_8);
                     }
                 }
             }
@@ -140,10 +142,6 @@ public class FurniExtractor {
                     
                     String source = sourceAttr.getNodeValue();
                     Node nameAttr = asset.getAttributes().getNamedItem("name");
-                    if (nameAttr == null) {
-                        continue;
-                    }
-                    
                     String imageName = nameAttr.getNodeValue();
                     
                     String assetImage = FileUtil.solveFile(exportDir.toString(), source);

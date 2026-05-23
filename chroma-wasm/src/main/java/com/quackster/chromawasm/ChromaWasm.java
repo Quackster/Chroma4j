@@ -86,7 +86,7 @@ public final class ChromaWasm {
             for (Map.Entry<Integer, byte[]> entry : binaries.entrySet()) {
                 String symbol = symbols.get(entry.getKey());
                 if (symbol == null) {
-                    continue;
+                    throw new IOException("No SymbolClass entry for binary data " + entry.getKey());
                 }
                 String type = suffix(symbol);
                 String xml = cleanXml(new String(entry.getValue(), StandardCharsets.UTF_8));
