@@ -895,19 +895,7 @@ public class ChromaFurniture {
                 int g = Math.min(255, bgColor.getGreen() + fgColor.getGreen());
                 int b = Math.min(255, bgColor.getBlue() + fgColor.getBlue());
                 
-                // For Add Pin blending, preserve the background alpha when foreground is opaque
-                // When foreground is semi-transparent, blend the alpha channels
-                int alpha;
-                if (fgColor.getAlpha() == 255) {
-                    // Fully opaque foreground - preserve background alpha
-                    alpha = bgColor.getAlpha();
-                } else if (bgColor.getAlpha() == 0) {
-                    // Transparent background - use foreground alpha
-                    alpha = fgColor.getAlpha();
-                } else {
-                    // Both have alpha - blend them (use maximum for additive effect)
-                    alpha = Math.min(255, Math.max(bgColor.getAlpha(), fgColor.getAlpha()));
-                }
+                int alpha = Math.min(255, Math.max(bgColor.getAlpha(), fgColor.getAlpha()));
                 
                 Color blendedColor = new Color(r, g, b, alpha);
                 canvas.setRGB(cx, cy, blendedColor.getRGB());

@@ -499,13 +499,7 @@ function drawAdd(ctx, source, x, y) {
       bg.data[targetIndex] = r;
       bg.data[targetIndex + 1] = g;
       bg.data[targetIndex + 2] = b;
-      if (source.data[sourceIndex + 3] === 255) {
-        bg.data[targetIndex + 3] = bg.data[targetIndex + 3];
-      } else if (bg.data[targetIndex + 3] === 0) {
-        bg.data[targetIndex + 3] = source.data[sourceIndex + 3];
-      } else {
-        bg.data[targetIndex + 3] = Math.min(255, Math.max(bg.data[targetIndex + 3], source.data[sourceIndex + 3]));
-      }
+      bg.data[targetIndex + 3] = Math.min(255, Math.max(bg.data[targetIndex + 3], source.data[sourceIndex + 3]));
     }
   }
   ctx.putImageData(bg, startX, startY);

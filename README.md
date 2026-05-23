@@ -163,6 +163,7 @@ Current parity-sensitive fixtures include:
 - `rare_dragonlamp`, small render, icon render, shadow render, and no-crop colored canvas render.
 - `rare_parasol`, state `1`, direction `4`, which covers translucent alpha blending and final crop/export behavior.
 - `rare_parasol`, state `1`, direction `4`, with shadows enabled.
+- `throne`, `club_sofa`, `rare_hammock`, `rare_icecream`, and `rare_fountain` to broaden direction, small, color, shadow, and simple static furni coverage.
 
 ## Build The Spring Webapp
 
