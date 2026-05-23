@@ -57,6 +57,28 @@ tasks.register("verifyWasmDist") {
                 commandLine "node", "--check", script.absolutePath
             }
         }
+
+        def runtimePath = runtimeFile.absolutePath.replace("\\", "/")
+        def wasmPath = wasmFile.absolutePath.replace("\\", "/")
+        def smokeFile = new File(temporaryDir, "verify-wasm-dist.cjs")
+        smokeFile.text = """
+            const fs = require("fs");
+            const runtime = fs.readFileSync("${runtimePath}", "utf8");
+            (0, eval)(runtime);
+            (async () => {
+              const teavm = await globalThis.TeaVM.wasmGC.load("${wasmPath}");
+              const result = JSON.parse(teavm.exports.parseSwfBase64(Buffer.from("not-a-swf").toString("base64"), "bad"));
+              if (result.ok !== false) {
+                throw new Error("parseSwfBase64 accepted invalid SWF bytes");
+              }
+            })().catch(error => {
+              console.error(error);
+              process.exit(1);
+            });
+        """
+        exec {
+            commandLine "node", smokeFile.absolutePath
+        }
     }
 }
 

@@ -113,13 +113,13 @@ node --check web\dist\chroma4j.js
 node --check web\dist\main.js
 ```
 
-Check that the complete `web/dist` release has non-empty static/WASM artifacts and valid browser JavaScript syntax:
+Check that the complete `web/dist` release has non-empty static/WASM artifacts, valid browser JavaScript syntax, and a loadable TeaVM parser:
 
 ```powershell
 .\gradlew.bat :chroma-wasm:verifyWasmDist
 ```
 
-Then run the runtime smoke check:
+You can also run the runtime smoke check directly:
 
 ```powershell
 node -e "const fs=require('fs'); const runtime=fs.readFileSync('web/dist/wasm-gc/chroma-wasm.wasm-runtime.js','utf8'); (0,eval)(runtime); (async()=>{ const teavm=await globalThis.TeaVM.wasmGC.load('web/dist/wasm-gc/chroma-wasm.wasm'); const result=JSON.parse(teavm.exports.parseSwfBase64(Buffer.from('not-a-swf').toString('base64'), 'bad')); console.log(result.ok === false); })().catch(e=>{ console.error(e); process.exit(1); });"
