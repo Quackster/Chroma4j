@@ -171,12 +171,12 @@ function readLayers(doc, size, direction) {
   const directionLayers = childElements(directionNode, "layer");
   const layerNodes = baseLayers.length > 0 ? baseLayers : directionLayers;
   for (const layer of layerNodes) {
-    const id = numberAttr(layer, "id", -1);
+    const id = requiredNumberAttr(layer, "id");
     if (id >= 0) {
       result.set(id, {
         ink: attr(layer, "ink"),
-        z: layer.hasAttribute("z") ? numberAttr(layer, "z", id) : undefined,
-        alpha: layer.hasAttribute("alpha") ? numberAttr(layer, "alpha", 255) : undefined
+        z: layer.hasAttribute("z") ? requiredNumberAttr(layer, "z") : undefined,
+        alpha: layer.hasAttribute("alpha") ? requiredNumberAttr(layer, "alpha") : undefined
       });
     }
   }
@@ -204,10 +204,10 @@ function readAnimationFrames(doc, size, state) {
   const animation = childElements(animationsNode, "animation").find(node => attr(node, "id") === String(state));
   if (!animation) return result;
   for (const layer of childElements(animation, "animationLayer")) {
-    const id = numberAttr(layer, "id", -1);
+    const id = requiredNumberAttr(layer, "id");
     const frame = childElements(firstChildElement(layer, "frameSequence"), "frame")[0];
     if (id >= 0 && frame) {
-      result.set(id, numberAttr(frame, "id", 0));
+      result.set(id, requiredNumberAttr(frame, "id"));
     }
   }
   return result;
@@ -222,7 +222,7 @@ function readMaxState(doc, size, direction) {
     const directionNode = childElements(directionsNode, "direction").find(node => attr(node, "id") === String(direction));
     animations = childElements(firstChildElement(directionNode, "animations"), "animation");
   }
-  return animations.reduce((max, animation) => Math.max(max, numberAttr(animation, "id", 0)), 0);
+  return animations.reduce((max, animation) => Math.max(max, requiredNumberAttr(animation, "id")), 0);
 }
 
 function firstChildElement(node, name) {
