@@ -34,8 +34,8 @@ public class HomeController {
             @RequestParam(name = "state", required = false, defaultValue = "0") String state,
             @RequestParam(name = "direction", required = false) String direction,
             @RequestParam(name = "rotation", required = false) String rotation,
-            @RequestParam(name = "color", required = false, defaultValue = "0") String color,
-            @RequestParam(name = "colour", required = false, defaultValue = "0") String colour,
+            @RequestParam(name = "color", required = false) String color,
+            @RequestParam(name = "colour", required = false) String colour,
             @RequestParam(name = "bg", required = false, defaultValue = "false") String bg,
             @RequestParam(name = "crop", required = false, defaultValue = "true") String crop,
             @RequestParam(name = "shadow", required = false, defaultValue = "false") String shadow,
@@ -52,12 +52,24 @@ public class HomeController {
             if (rotation != null && !rotation.isEmpty()) {
                 renderDirection = parseNumeric(rotation, renderDirection);
             }
-            int colorId = Math.max(parseNumeric(color, 0), parseNumeric(colour, 0));
-            boolean renderBackground = !("0".equals(bg) || "false".equalsIgnoreCase(bg));
-            boolean renderShadows = "1".equals(shadow) || "true".equalsIgnoreCase(shadow);
-            boolean cropImage = "1".equals(crop) || "true".equalsIgnoreCase(crop);
+            int colorId = 0;
+            if (isNumeric(color)) {
+                colorId = parseNumeric(color, 0);
+                if (colorId >= 16) {
+                    colorId = 0;
+                }
+            }
+            if (isNumeric(colour)) {
+                colorId = parseNumeric(colour, colorId);
+                if (colorId >= 16) {
+                    colorId = 0;
+                }
+            }
+            boolean renderBackground = !("0".equals(bg) || "false".equals(bg));
+            boolean renderShadows = parseBoolean(shadow);
+            boolean cropImage = parseBoolean(crop);
             String renderCanvasColour = canvas;
-            boolean renderIcon = "1".equals(icon) || "true".equalsIgnoreCase(icon);
+            boolean renderIcon = parseBoolean(icon);
             boolean generateGif = parseBoolean(gif);
             
             // Validate state and color
@@ -155,21 +167,30 @@ public class HomeController {
      * Parses a string parameter as a boolean
      */
     private boolean parseBoolean(String value) {
-        return "1".equals(value) || "true".equalsIgnoreCase(value);
+        return "1".equals(value) || "true".equals(value);
     }
     
     /**
      * Parses a numeric string parameter
      */
     private int parseNumeric(String value, int defaultValue) {
-        if (value == null || value.isEmpty()) {
+        if (!isNumeric(value)) {
             return defaultValue;
         }
-        
+
+        return Integer.parseInt(value);
+    }
+
+    private boolean isNumeric(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+
         try {
-            return Integer.parseInt(value);
+            Integer.parseInt(value);
+            return true;
         } catch (NumberFormatException e) {
-            return defaultValue;
+            return false;
         }
     }
     

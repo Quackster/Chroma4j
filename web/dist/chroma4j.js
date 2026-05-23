@@ -670,19 +670,33 @@ function parseAssetName(sprite, name, icon) {
 
 function normalizeOptions(options) {
   const direction = numeric(options.rotation ?? options.direction, 0);
+  const state = numeric(options.state, 0);
   return {
     sprite: options.sprite || "",
     small: optionBoolean(options.small) || optionBoolean(options.s),
-    state: Math.min(numeric(options.state, 0), 100),
+    state: state >= 101 ? 0 : state,
     direction,
-    color: Math.min(Math.max(numeric(options.color ?? options.colour, 0), numeric(options.colour ?? options.color, 0)), 15),
+    color: normalizeColor(options),
     canvas: options.canvas || "transparent",
     crop: options.crop === undefined ? true : optionBoolean(options.crop),
     shadow: optionBoolean(options.shadow),
     icon: optionBoolean(options.icon),
-    background: optionBoolean(options.background) || optionBoolean(options.bg),
+    background: backgroundBoolean(options.bg) || optionBoolean(options.background),
     basePath: options.basePath || "."
   };
+}
+
+function normalizeColor(options) {
+  let color = 0;
+  const colorOption = numericOption(options.color);
+  if (colorOption !== undefined) {
+    color = colorOption >= 16 ? 0 : colorOption;
+  }
+  const colourOption = numericOption(options.colour);
+  if (colourOption !== undefined) {
+    color = colourOption >= 16 ? 0 : colourOption;
+  }
+  return color;
 }
 
 function numeric(value, fallback) {
@@ -690,8 +704,21 @@ function numeric(value, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function numericOption(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const text = String(value);
+  if (!/^-?\d+$/.test(text)) return undefined;
+  const n = Number.parseInt(text, 10);
+  return Number.isSafeInteger(n) ? n : undefined;
+}
+
 function optionBoolean(value) {
-  return value === true || value === 1 || value === "1" || (typeof value === "string" && value.toLowerCase() === "true");
+  return value === true || value === 1 || value === "1" || value === "true";
+}
+
+function backgroundBoolean(value) {
+  if (value === undefined || value === null) return false;
+  return value !== false && value !== 0 && value !== "0" && value !== "false";
 }
 
 function attr(node, name) {

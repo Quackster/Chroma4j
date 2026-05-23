@@ -134,6 +134,13 @@ function Invoke-Renderer([string] $Command, [string[]] $Arguments, [string] $Wor
     }
 }
 
+function Get-CaseProperty([object] $Case, [string] $Name) {
+    if ($Case.PSObject.Properties.Name -contains $Name) {
+        return $Case.$Name
+    }
+    return $null
+}
+
 function Compare-Png([string] $ExpectedPath, [string] $ActualPath) {
     Add-Type -AssemblyName System.Drawing
 
@@ -238,11 +245,14 @@ server.listen(0, "127.0.0.1", async () => {
           const { loadChroma4j } = await import("./chroma4j.js");
           const chroma = await loadChroma4j({ basePath: "." });
           const result = await chroma.renderFromUrl(`http://127.0.0.1:${port}/${item.swfRelativePath}`, {
-            state: item.state,
-            direction: item.direction,
-            color: item.color,
+            state: item.wasmState ?? item.state,
+            direction: item.wasmDirection ?? item.direction,
+            rotation: item.wasmRotation,
+            color: item.wasmColor ?? item.color,
+            colour: item.wasmColour,
             shadow: item.shadow,
-            background: item.background,
+            bg: item.wasmBg,
+            background: item.wasmBackground ?? item.background,
             canvas: item.canvas,
             crop: item.crop,
             small: item.small,
@@ -284,6 +294,8 @@ $cases = @(
     [pscustomobject]@{ Name = "rare_dragonlamp_canvas_nocrop"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "336699"; Crop = $false },
     [pscustomobject]@{ Name = "rare_dragonlamp_background"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $true; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_background_nocrop"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $true; Canvas = "transparent"; Crop = $false },
+    [pscustomobject]@{ Name = "rare_dragonlamp_state101"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; WasmState = 101; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
+    [pscustomobject]@{ Name = "rare_dragonlamp_bg_false_case"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $true; WasmBackground = $false; WasmBg = "False"; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_parasol_alpha"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_parasol.swf"; Swf = "rare_parasol.swf"; Small = $false; State = 1; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_parasol_shadow"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_parasol.swf"; Swf = "rare_parasol.swf"; Small = $false; State = 1; Direction = 4; Color = 0; Shadow = $true; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "throne_d2"; Url = "https://images.classichabbo.com/dcr/hof_furni/throne.swf"; Swf = "throne.swf"; Small = $false; State = 0; Direction = 2; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
@@ -291,6 +303,8 @@ $cases = @(
     [pscustomobject]@{ Name = "throne_small_d2"; Url = "https://images.classichabbo.com/dcr/hof_furni/throne.swf"; Swf = "throne.swf"; Small = $true; State = 0; Direction = 2; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "club_sofa_d2"; Url = "https://images.classichabbo.com/dcr/hof_furni/club_sofa.swf"; Swf = "club_sofa.swf"; Small = $false; State = 0; Direction = 2; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "club_sofa_color1"; Url = "https://images.classichabbo.com/dcr/hof_furni/club_sofa.swf"; Swf = "club_sofa.swf"; Small = $false; State = 0; Direction = 2; Color = 1; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
+    [pscustomobject]@{ Name = "club_sofa_color20"; Url = "https://images.classichabbo.com/dcr/hof_furni/club_sofa.swf"; Swf = "club_sofa.swf"; Small = $false; State = 0; Direction = 2; Color = 0; WasmColor = 20; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
+    [pscustomobject]@{ Name = "club_sofa_colour_override"; Url = "https://images.classichabbo.com/dcr/hof_furni/club_sofa.swf"; Swf = "club_sofa.swf"; Small = $false; State = 0; Direction = 2; Color = 1; WasmColor = 2; WasmColour = 1; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "club_sofa_shadow"; Url = "https://images.classichabbo.com/dcr/hof_furni/club_sofa.swf"; Swf = "club_sofa.swf"; Small = $false; State = 0; Direction = 2; Color = 0; Shadow = $true; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_hammock_d2"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_hammock.swf"; Swf = "rare_hammock.swf"; Small = $false; State = 0; Direction = 2; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_hammock_d4"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_hammock.swf"; Swf = "rare_hammock.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
@@ -356,8 +370,15 @@ foreach ($case in $cases) {
         state = $case.State
         direction = $case.Direction
         color = $case.Color
+        wasmState = Get-CaseProperty $case "WasmState"
+        wasmDirection = Get-CaseProperty $case "WasmDirection"
+        wasmRotation = Get-CaseProperty $case "WasmRotation"
+        wasmColor = Get-CaseProperty $case "WasmColor"
+        wasmColour = Get-CaseProperty $case "WasmColour"
         shadow = $case.Shadow
         background = $case.Background
+        wasmBackground = Get-CaseProperty $case "WasmBackground"
+        wasmBg = Get-CaseProperty $case "WasmBg"
         canvas = $case.Canvas
         crop = $case.Crop
         small = $case.Small
