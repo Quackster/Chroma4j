@@ -96,8 +96,10 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
   const colorLayers = readColorLayers(visualizationXml, size, options.color);
   const animations = readAnimationFrames(visualizationXml, size, options.state);
   const candidates = [...assetsXml.getElementsByTagName("asset")].map(node => {
-    const name = attr(node, "name");
-    if (!name || name.includes(".props") || name.startsWith(`s_${sprite}`)) return null;
+    const x = requiredNumberAttr(node, "x");
+    const y = requiredNumberAttr(node, "y");
+    const name = requiredAttr(node, "name");
+    if (name.includes(".props") || name.startsWith(`s_${sprite}`)) return null;
     if (options.icon ? !name.includes("_icon_") : name.includes("_icon_")) return null;
 
     const parsed = parseAssetName(sprite, name, options.icon);
@@ -110,8 +112,8 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
       name,
       image: imageEntry.image,
       flipH: attr(node, "flipH") === "1" || imageEntry.flipH,
-      x: ((attr(node, "flipH") === "1" || imageEntry.flipH) ? imageEntry.image.width - numberAttr(node, "x", 0) : numberAttr(node, "x", 0)) + (options.renderWidth / 2),
-      y: numberAttr(node, "y", 0) + (options.renderHeight / 2),
+      x: ((attr(node, "flipH") === "1" || imageEntry.flipH) ? imageEntry.image.width - x : x) + (options.renderWidth / 2),
+      y: y + (options.renderHeight / 2),
       z: (layerInfo.z ?? parsed.layer) + parsed.layer,
       layer: parsed.layer,
       direction: parsed.direction,
@@ -756,8 +758,20 @@ function attr(node, name) {
   return node?.getAttribute(name) || "";
 }
 
+function requiredAttr(node, name) {
+  const value = node?.getAttribute(name);
+  if (value === null || value === undefined) {
+    throw new TypeError(`Cannot read properties of null (reading 'InnerText')`);
+  }
+  return value;
+}
+
 function numberAttr(node, name, fallback) {
   return numeric(attr(node, name), fallback);
+}
+
+function requiredNumberAttr(node, name) {
+  return numeric(requiredAttr(node, name), 0);
 }
 
 function normalizeName(sprite, value) {

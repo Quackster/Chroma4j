@@ -263,15 +263,9 @@ public class ChromaFurniture {
         for (int i = 0; i < assetNodes.getLength(); i++) {
             Node asset = assetNodes.item(i);
             
-            Node xAttr = asset.getAttributes().getNamedItem("x");
-            Node yAttr = asset.getAttributes().getNamedItem("y");
-            Node nameAttr = asset.getAttributes().getNamedItem("name");
-            
-            if (xAttr == null || yAttr == null || nameAttr == null) continue;
-            
-            int x = Integer.parseInt(xAttr.getNodeValue());
-            int y = Integer.parseInt(yAttr.getNodeValue());
-            String imageName = nameAttr.getNodeValue();
+            int x = Integer.parseInt(asset.getAttributes().getNamedItem("x").getNodeValue());
+            int y = Integer.parseInt(asset.getAttributes().getNamedItem("y").getNodeValue());
+            String imageName = asset.getAttributes().getNamedItem("name").getNodeValue();
             
             if (imageName.contains(".props") || imageName.startsWith("s_" + this.sprite)) {
                 continue;
