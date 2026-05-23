@@ -4,3 +4,5 @@
 /chroma-webapp/build
 /chroma-wasm/build
 /furni_export
+/node_modules
+/web/dist
