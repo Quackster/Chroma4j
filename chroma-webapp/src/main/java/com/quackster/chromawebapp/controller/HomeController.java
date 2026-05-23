@@ -141,16 +141,16 @@ public class HomeController {
             return defaultValue;
         }
 
-        return Integer.parseInt(value);
+        return Integer.parseInt(value.trim());
     }
 
     private boolean isNumeric(String value) {
-        if (value == null || value.isEmpty()) {
+        if (value == null || value.trim().isEmpty()) {
             return false;
         }
 
         try {
-            Integer.parseInt(value);
+            Long.parseLong(value.trim());
             return true;
         } catch (NumberFormatException e) {
             return false;

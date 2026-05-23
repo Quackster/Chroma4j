@@ -712,16 +712,29 @@ function normalizeColor(options) {
 }
 
 function numeric(value, fallback) {
-  const n = Number.parseInt(value, 10);
-  return Number.isFinite(n) ? n : fallback;
+  const n = csharpInt(value);
+  return n === undefined ? fallback : n;
 }
 
 function numericOption(value) {
   if (value === undefined || value === null || value === "") return undefined;
-  const text = String(value);
-  if (!/^-?\d+$/.test(text)) return undefined;
-  const n = Number.parseInt(text, 10);
-  return Number.isSafeInteger(n) ? n : undefined;
+  return csharpInt(value);
+}
+
+function csharpInt(value) {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  if (!/^[+-]?\d+$/.test(text)) return undefined;
+  const asLong = BigInt(text);
+  const longMin = -9223372036854775808n;
+  const longMax = 9223372036854775807n;
+  if (asLong < longMin || asLong > longMax) return undefined;
+  const intMin = -2147483648n;
+  const intMax = 2147483647n;
+  if (asLong < intMin || asLong > intMax) {
+    throw new RangeError("Value was either too large or too small for an Int32.");
+  }
+  return Number(asLong);
 }
 
 function optionBoolean(value) {
