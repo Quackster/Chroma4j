@@ -36,6 +36,27 @@ function New-CSharpHarness([string] $HarnessDir, [string] $CSharpProject) {
 using Chroma;
 using System.IO;
 
+if (args.Length == 1 && args[0] == "__PROBE_HEX__")
+{
+    try
+    {
+        ChromaFurniture.HexToColor(null!);
+        Console.WriteLine("null=NO_THROW");
+    }
+    catch
+    {
+        Console.WriteLine("null=THROW");
+    }
+
+    var hashFallback = ChromaFurniture.HexToColor("#336699");
+    var shortHex = ChromaFurniture.HexToColor("FFF");
+    var transparent = ChromaFurniture.HexToColor("transparent");
+    Console.WriteLine($"hash={hashFallback.R},{hashFallback.G},{hashFallback.B},{hashFallback.A}");
+    Console.WriteLine($"short={shortHex.R},{shortHex.G},{shortHex.B},{shortHex.A}");
+    Console.WriteLine($"transparent={transparent.R},{transparent.G},{transparent.B},{transparent.A}");
+    return 0;
+}
+
 if (args.Length < 11)
 {
     Console.Error.WriteLine("usage: <swf> <small> <state> <direction> <color> <shadow> <background> <canvas> <crop> <icon> <out>");
@@ -68,11 +89,29 @@ function New-JavaHarness([string] $HarnessDir) {
 
     $source = @'
 import com.quackster.chroma.ChromaFurniture;
+import java.awt.Color;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class ChromaParityJavaRender {
     public static void main(String[] args) throws Exception {
+        if (args.length == 1 && "__PROBE_HEX__".equals(args[0])) {
+            try {
+                ChromaFurniture.hexToColor(null);
+                System.out.println("null=NO_THROW");
+            } catch (Exception e) {
+                System.out.println("null=THROW");
+            }
+
+            Color hashFallback = ChromaFurniture.hexToColor("#336699");
+            Color shortHex = ChromaFurniture.hexToColor("FFF");
+            Color transparent = ChromaFurniture.hexToColor("transparent");
+            System.out.println("hash=" + hashFallback.getRed() + "," + hashFallback.getGreen() + "," + hashFallback.getBlue() + "," + hashFallback.getAlpha());
+            System.out.println("short=" + shortHex.getRed() + "," + shortHex.getGreen() + "," + shortHex.getBlue() + "," + shortHex.getAlpha());
+            System.out.println("transparent=" + transparent.getRed() + "," + transparent.getGreen() + "," + transparent.getBlue() + "," + transparent.getAlpha());
+            return;
+        }
+
         if (args.length < 11) {
             System.err.println("usage: <swf> <small> <state> <direction> <color> <shadow> <background> <canvas> <crop> <icon> <out>");
             System.exit(2);
@@ -129,6 +168,19 @@ function Invoke-Renderer([string] $Command, [string[]] $Arguments, [string] $Wor
         if ($LASTEXITCODE -ne 0) {
             throw "$Command exited with code $LASTEXITCODE"
         }
+    } finally {
+        Pop-Location
+    }
+}
+
+function Invoke-RendererOutput([string] $Command, [string[]] $Arguments, [string] $WorkingDirectory) {
+    Push-Location $WorkingDirectory
+    try {
+        $output = & $Command @Arguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "$Command exited with code $LASTEXITCODE"
+        }
+        ($output -join "`n").Trim()
     } finally {
         Pop-Location
     }
@@ -472,6 +524,18 @@ $csharpHarnessDll = Join-Path $csharpHarness "bin\Debug\net8.0\ChromaParityCS.dl
 if (!(Test-Path $csharpHarnessDll)) {
     throw "C# parity harness did not produce $csharpHarnessDll"
 }
+
+$csharpHexProbe = Invoke-RendererOutput "dotnet" @($csharpHarnessDll, "__PROBE_HEX__") $workspace
+$javaHexProbe = Invoke-RendererOutput "java" @("-cp", "$javaClasses;$classpath", "ChromaParityJavaRender", "__PROBE_HEX__") $workspace
+if ($csharpHexProbe -ne $javaHexProbe) {
+    Write-Host "C# hex probe:"
+    Write-Host $csharpHexProbe
+    Write-Host "Java hex probe:"
+    Write-Host $javaHexProbe
+    throw "Hex color behavior differs between C# and Java."
+}
+Write-Host "Hex color behavior parity:"
+Write-Host $javaHexProbe
 
 $results = New-Object System.Collections.Generic.List[object]
 $wasmCases = New-Object System.Collections.Generic.List[object]
