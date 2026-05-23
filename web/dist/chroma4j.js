@@ -37,9 +37,6 @@ async function renderFromUrl(url, options = {}, target) {
 }
 
 async function renderFromBytes(bytes, options = {}, target) {
-  if (options.gif) {
-    throw new Error("GIF export is not supported by the first TeaVM client release");
-  }
   await ensureTeaVm(options.basePath || ".");
   const normalized = normalizeOptions(options);
   const packageJson = globalThis.__chroma4jTeaVmParseSwf(bytesToBase64(bytes), normalized.sprite || "");
