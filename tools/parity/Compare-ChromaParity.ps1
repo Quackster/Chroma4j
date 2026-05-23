@@ -413,7 +413,8 @@ server.listen(0, "127.0.0.1", async () => {
         renderResult = await page.evaluate(async ({ item, port }) => {
           const { loadChroma4j } = await import("./chroma4j.js");
           const chroma = await loadChroma4j({ basePath: "." });
-          const result = await chroma.renderFromUrl(`http://127.0.0.1:${port}/${item.swfRelativePath}`, {
+          const swfUrl = `http://127.0.0.1:${port}/${item.swfRelativePath}`;
+          const renderOptions = {
             state: item.wasmState ?? item.state,
             direction: item.wasmDirection ?? item.direction,
             rotation: item.wasmRotation,
@@ -427,7 +428,14 @@ server.listen(0, "127.0.0.1", async () => {
             small: item.small,
             icon: item.icon,
             gif: item.wasmGif
-          });
+          };
+          let result;
+          if (item.assertRenderFromBytes) {
+            const response = await fetch(swfUrl);
+            result = await chroma.renderFromBytes(await response.arrayBuffer(), { ...renderOptions, sprite: item.sprite });
+          } else {
+            result = await chroma.renderFromUrl(swfUrl, renderOptions);
+          }
           const dataUrl = result.dataUrl();
           if (!item.assertResultApi) {
             return { dataUrl };
@@ -611,7 +619,9 @@ foreach ($case in $cases) {
         crop = $case.Crop
         small = $case.Small
         icon = $icon
+        sprite = [System.IO.Path]::GetFileNameWithoutExtension($case.Swf)
         assertResultApi = $case.Name -eq "rare_dragonlamp_d0"
+        assertRenderFromBytes = $case.Name -eq "rare_dragonlamp_d2"
         name = $case.Name
         wasmOutput = (Join-Path $output "$($case.Name)-wasm.png")
         expectedOutput = $csOutput
