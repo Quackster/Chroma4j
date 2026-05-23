@@ -84,7 +84,9 @@ public class ChromaFurniture {
     }
 
     public String run() {
-        FurniExtractor.parse(this.fileName);
+        if (!FurniExtractor.parse(this.fileName)) {
+            throw new RuntimeException("Failed to parse SWF file: " + this.fileName);
+        }
         
         if (this.renderBackground) {
             try {
