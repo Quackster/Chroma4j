@@ -120,7 +120,7 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
       frame: parsed.frame,
       ink: layerInfo.ink,
       alpha: layerInfo.alpha,
-      color: colorLayers.get(parsed.layer),
+      color: colorLayers.get(String(parsed.layer)),
       shadow: name.includes("_sd_")
     };
   }).filter(Boolean);
@@ -191,7 +191,7 @@ function readColorLayers(doc, size, colorId) {
   const color = childElements(colorsNode, "color").find(node => attr(node, "id") === String(colorId));
   if (!color) return result;
   for (const layer of childElements(color, "colorLayer")) {
-    result.set(numberAttr(layer, "id", -1), attr(layer, "color"));
+    result.set(attr(layer, "id"), attr(layer, "color"));
   }
   return result;
 }
@@ -668,7 +668,7 @@ function sameAnyPixel(data, i, colors) {
 function parseAssetName(sprite, name, icon) {
   const parts = normalizeName(sprite, name).split("_");
   if (icon) {
-    if (parts.length < 2) return null;
+    if (parts.length < 2 || !parts[1]) return null;
     return {
       size: parts[0],
       layer: parts[1].toUpperCase().charCodeAt(0) - 65,
@@ -676,12 +676,21 @@ function parseAssetName(sprite, name, icon) {
       frame: 0
     };
   }
-  if (parts.length < 4) return null;
+  if (parts.length < 4 || !parts[1]) return null;
+  let direction;
+  let frame;
+  try {
+    direction = csharpInt(parts[2]);
+    frame = csharpInt(parts[3]);
+  } catch {
+    return null;
+  }
+  if (direction === undefined || frame === undefined) return null;
   return {
     size: parts[0],
     layer: parts[1].toUpperCase().charCodeAt(0) - 65,
-    direction: Number.parseInt(parts[2], 10),
-    frame: Number.parseInt(parts[3], 10)
+    direction,
+    frame
   };
 }
 
@@ -764,10 +773,6 @@ function requiredAttr(node, name) {
     throw new TypeError(`Cannot read properties of null (reading 'InnerText')`);
   }
   return value;
-}
-
-function numberAttr(node, name, fallback) {
-  return numeric(attr(node, name), fallback);
 }
 
 function requiredNumberAttr(node, name) {
