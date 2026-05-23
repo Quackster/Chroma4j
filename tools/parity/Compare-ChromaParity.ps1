@@ -141,6 +141,111 @@ function Get-CaseProperty([object] $Case, [string] $Name) {
     return $null
 }
 
+function Read-UInt16LE([byte[]] $Bytes, [int] $Offset) {
+    [int] $Bytes[$Offset] -bor ([int] $Bytes[$Offset + 1] -shl 8)
+}
+
+function Read-Int32LE([byte[]] $Bytes, [int] $Offset) {
+    [int] $Bytes[$Offset] -bor ([int] $Bytes[$Offset + 1] -shl 8) -bor ([int] $Bytes[$Offset + 2] -shl 16) -bor ([int] $Bytes[$Offset + 3] -shl 24)
+}
+
+function Expand-SwfBody([string] $SwfPath) {
+    $bytes = [System.IO.File]::ReadAllBytes((Resolve-FullPath $SwfPath))
+    if ($bytes.Length -lt 8) {
+        throw "SWF file is too short: $SwfPath"
+    }
+
+    $signature = [char] $bytes[0]
+    if ($bytes[1] -ne [byte][char]'W' -or $bytes[2] -ne [byte][char]'S') {
+        throw "Unsupported SWF signature in $SwfPath"
+    }
+
+    if ($signature -eq 'F') {
+        $body = New-Object byte[] ($bytes.Length - 8)
+        [Array]::Copy($bytes, 8, $body, 0, $body.Length)
+        return $body
+    }
+
+    if ($signature -ne 'C') {
+        throw "Unsupported SWF compression '$signature' in $SwfPath"
+    }
+
+    if ($bytes.Length -lt 12) {
+        throw "Compressed SWF file is too short: $SwfPath"
+    }
+
+    $inputStream = [System.IO.MemoryStream]::new($bytes, 10, $bytes.Length - 14)
+    $deflate = [System.IO.Compression.DeflateStream]::new($inputStream, [System.IO.Compression.CompressionMode]::Decompress)
+    $outputStream = [System.IO.MemoryStream]::new()
+    try {
+        $deflate.CopyTo($outputStream)
+        return $outputStream.ToArray()
+    } finally {
+        $deflate.Dispose()
+        $inputStream.Dispose()
+        $outputStream.Dispose()
+    }
+}
+
+function Get-SwfBitmapSummary([string] $SwfPath) {
+    $body = Expand-SwfBody $SwfPath
+    if ($body.Length -lt 5) {
+        throw "SWF body is too short: $SwfPath"
+    }
+
+    $nbits = $body[0] -shr 3
+    $rectBytes = [math]::Ceiling((5 + ($nbits * 4)) / 8)
+    $offset = [int] $rectBytes + 4
+    $summary = @{}
+
+    while ($offset + 2 -le $body.Length) {
+        $header = Read-UInt16LE $body $offset
+        $offset += 2
+        $code = $header -shr 6
+        $length = $header -band 63
+        if ($length -eq 63) {
+            if ($offset + 4 -gt $body.Length) {
+                throw "Malformed long SWF tag length in $SwfPath"
+            }
+            $length = Read-Int32LE $body $offset
+            $offset += 4
+        }
+        if ($length -lt 0 -or $offset + $length -gt $body.Length) {
+            throw "Malformed SWF tag in $SwfPath"
+        }
+        if ($code -eq 0) {
+            break
+        }
+
+        if ($code -eq 20 -or $code -eq 36) {
+            if ($length -ge 7) {
+                $format = $body[$offset + 2]
+                $key = "DefineBitsLossless$($code):Format$format"
+                if (!$summary.ContainsKey($key)) {
+                    $summary[$key] = 0
+                }
+                $summary[$key] = 1 + [int] $summary[$key]
+            }
+        } elseif ($code -eq 21 -or $code -eq 35 -or $code -eq 90) {
+            $key = "EncodedImage$code"
+            if (!$summary.ContainsKey($key)) {
+                $summary[$key] = 0
+            }
+            $summary[$key] = 1 + [int] $summary[$key]
+        }
+
+        $offset += $length
+    }
+
+    [pscustomobject]@{
+        Swf = Split-Path $SwfPath -Leaf
+        Summary = (($summary.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join "; ")
+        UnsupportedForWasm = (($summary.GetEnumerator() | Where-Object {
+            $_.Key -like "DefineBitsLossless36:*" -and $_.Key -ne "DefineBitsLossless36:Format5"
+        } | Sort-Object Name | ForEach-Object { $_.Key }) -join ", ")
+    }
+}
+
 function Compare-Png([string] $ExpectedPath, [string] $ActualPath) {
     Add-Type -AssemblyName System.Drawing
 
@@ -318,6 +423,16 @@ foreach ($case in $cases | Group-Object Swf) {
     if (!(Test-Path $target)) {
         Invoke-WebRequest -Uri $case.Group[0].Url -OutFile $target -UseBasicParsing
     }
+}
+
+$bitmapCoverage = foreach ($swf in Get-ChildItem -Path $swfDir -Filter *.swf) {
+    Get-SwfBitmapSummary $swf.FullName
+}
+$bitmapCoverage | Format-Table Swf, Summary -AutoSize
+$unsupportedBitmapFormats = $bitmapCoverage | Where-Object { $_.UnsupportedForWasm }
+if ($unsupportedBitmapFormats) {
+    $unsupportedBitmapFormats | Format-Table Swf, UnsupportedForWasm -AutoSize
+    throw "Fixture set contains SWF bitmap formats not currently supported by the TeaVM extractor."
 }
 
 & (Join-Path $workspace "gradlew.bat") :chroma-lib:classes | Out-Host
