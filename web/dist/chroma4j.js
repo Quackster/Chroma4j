@@ -122,6 +122,9 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
   const highestLayer = candidates
     .filter(asset => !asset.shadow)
     .reduce((highest, asset) => Math.max(highest, asset.layer), -1) + 1;
+  if (highestLayer === 0) {
+    throw new Error("Sequence contains no elements");
+  }
   const assets = [];
   for (let layer = 0; layer < highestLayer; layer++) {
     const frame = animations.get(layer) ?? 0;
