@@ -656,9 +656,9 @@ if ($IncludeWasm) {
     )
     $chrome = $chromeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (!$chrome) {
-        Write-Warning "Skipping WASM parity: Chrome or Edge executable was not found."
+        throw "WASM parity requested, but Chrome or Edge executable was not found."
     } elseif (!(Test-Path (Join-Path $workspace "node_modules\playwright-core"))) {
-        Write-Warning "Skipping WASM parity: node_modules\playwright-core was not found. Run npm install --no-save playwright-core to enable this check."
+        throw "WASM parity requested, but node_modules\playwright-core was not found. Run npm install --no-save playwright-core to enable this check."
     } else {
         $wasmCasesPath = Join-Path $output "wasm-cases.json"
         $wasmScriptPath = Join-Path $output "render-wasm.js"
