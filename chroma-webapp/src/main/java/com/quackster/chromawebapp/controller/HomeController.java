@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -167,7 +168,7 @@ public class HomeController {
     private static String hash(String input) {
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-            byte[] hash = sha1.digest(input.getBytes());
+            byte[] hash = sha1.digest(input.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder(hash.length * 2);
             
             for (byte b : hash) {
