@@ -1,4 +1,5 @@
 let teavmInstancePromise;
+const BUILD_VERSION = "ink-add-20260524";
 
 export async function loadChroma4j(options = {}) {
   await ensureTeaVm(options.basePath || ".");
@@ -14,8 +15,8 @@ async function ensureTeaVm(basePath) {
   }
   if (!teavmInstancePromise) {
     teavmInstancePromise = (async () => {
-      await loadScript(`${basePath}/wasm-gc/chroma-wasm.wasm-runtime.js`);
-      const teavm = await globalThis.TeaVM.wasmGC.load(`${basePath}/wasm-gc/chroma-wasm.wasm`);
+      await loadScript(`${basePath}/wasm-gc/chroma-wasm.wasm-runtime.js?v=${BUILD_VERSION}`);
+      const teavm = await globalThis.TeaVM.wasmGC.load(`${basePath}/wasm-gc/chroma-wasm.wasm?v=${BUILD_VERSION}`);
       if (teavm.exports.main) {
         teavm.exports.main([]);
       }

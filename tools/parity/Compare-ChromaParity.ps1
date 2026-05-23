@@ -429,18 +429,18 @@ server.listen(0, "127.0.0.1", async () => {
           const swfUrl = `http://127.0.0.1:${port}/${item.swfRelativePath}`;
           const renderOptions = {
             state: item.wasmState ?? item.state,
-            direction: item.wasmDirection ?? item.direction,
-            rotation: item.wasmRotation,
-            color: item.wasmColor ?? item.color,
+            direction: item.wasmOmitDefaults ? undefined : item.wasmDirection ?? item.direction,
+            rotation: item.wasmOmitDefaults ? undefined : item.wasmRotation,
+            color: item.wasmOmitDefaults ? undefined : item.wasmColor ?? item.color,
             colour: item.wasmColour,
-            shadow: item.shadow,
+            shadow: item.wasmOmitDefaults ? undefined : item.shadow,
             bg: item.wasmBg,
-            background: item.wasmBackground ?? item.background,
-            canvas: item.canvas === "__CHROMA_EMPTY__" ? "" : item.canvas,
-            crop: item.wasmCrop ?? item.crop,
-            small: item.wasmSmall ?? item.small,
+            background: item.wasmOmitDefaults ? undefined : item.wasmBackground ?? item.background,
+            canvas: item.wasmOmitDefaults ? undefined : item.canvas === "__CHROMA_EMPTY__" ? "" : item.canvas,
+            crop: item.wasmOmitDefaults ? undefined : item.wasmCrop ?? item.crop,
+            small: item.wasmOmitDefaults ? undefined : item.wasmSmall ?? item.small,
             s: item.wasmS,
-            icon: item.icon,
+            icon: item.wasmOmitDefaults ? undefined : item.icon,
             gif: item.wasmGif
           };
           let result;
@@ -507,6 +507,7 @@ $cases = @(
     [pscustomobject]@{ Name = "rare_dragonlamp_d4"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_state1_d4"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 1; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_state1_d0"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 1; Direction = 0; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
+    [pscustomobject]@{ Name = "rare_dragonlamp_state1_url_defaults"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 1; Direction = 0; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true; WasmOmitDefaults = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_direction_fallback"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 7; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_small_d4"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $true; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_icon"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 0; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true; Icon = $true },
@@ -640,6 +641,7 @@ foreach ($case in $cases) {
         wasmSmall = Get-CaseProperty $case "WasmSmall"
         wasmS = Get-CaseProperty $case "WasmS"
         wasmCrop = Get-CaseProperty $case "WasmCrop"
+        wasmOmitDefaults = [bool] (Get-CaseProperty $case "WasmOmitDefaults")
         canvas = $case.Canvas
         crop = $case.Crop
         small = $case.Small
