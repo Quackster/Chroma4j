@@ -28,8 +28,8 @@ From the repository root:
 
 This compiles the TeaVM module and writes:
 
-- `web/dist/wasm-gc/chroma4j.wasm`
-- `web/dist/wasm-gc/chroma4j.wasm-runtime.js`
+- `web/dist/wasm-gc/chroma-wasm.wasm`
+- `web/dist/wasm-gc/chroma-wasm.wasm-runtime.js`
 
 The checked-in static deployment files are:
 
@@ -115,7 +115,7 @@ node --check web\dist\main.js
 Check that the TeaVM runtime can load the generated WASM and expose the parser:
 
 ```powershell
-node -e "const fs=require('fs'); const runtime=fs.readFileSync('web/dist/wasm-gc/chroma4j.wasm-runtime.js','utf8'); (0,eval)(runtime); (async()=>{ const teavm=await globalThis.TeaVM.wasmGC.load('web/dist/wasm-gc/chroma4j.wasm'); const result=JSON.parse(teavm.exports.parseSwfBase64(Buffer.from('not-a-swf').toString('base64'), 'bad')); console.log(result.ok === false); })().catch(e=>{ console.error(e); process.exit(1); });"
+node -e "const fs=require('fs'); const runtime=fs.readFileSync('web/dist/wasm-gc/chroma-wasm.wasm-runtime.js','utf8'); (0,eval)(runtime); (async()=>{ const teavm=await globalThis.TeaVM.wasmGC.load('web/dist/wasm-gc/chroma-wasm.wasm'); const result=JSON.parse(teavm.exports.parseSwfBase64(Buffer.from('not-a-swf').toString('base64'), 'bad')); console.log(result.ok === false); })().catch(e=>{ console.error(e); process.exit(1); });"
 ```
 
 Expected output:
@@ -129,7 +129,7 @@ Check static serving:
 ```powershell
 python -m http.server 5177 --directory web/dist
 Invoke-WebRequest -Uri http://localhost:5177 -UseBasicParsing | Select-Object -ExpandProperty StatusCode
-Invoke-WebRequest -Uri http://localhost:5177/wasm-gc/chroma4j.wasm -UseBasicParsing | Select-Object -ExpandProperty StatusCode
+Invoke-WebRequest -Uri http://localhost:5177/wasm-gc/chroma-wasm.wasm -UseBasicParsing | Select-Object -ExpandProperty StatusCode
 ```
 
 Expected output for each request:

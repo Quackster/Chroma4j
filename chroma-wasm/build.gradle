@@ -18,7 +18,7 @@ teavm {
     }
 
     wasmGC {
-        targetFileName = "chroma4j.wasm"
+        targetFileName = "chroma-wasm.wasm"
         relativePathInOutputDir = "wasm-gc"
         copyRuntime = true
         obfuscated = true

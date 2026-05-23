@@ -14,8 +14,8 @@ async function ensureTeaVm(basePath) {
   }
   if (!teavmInstancePromise) {
     teavmInstancePromise = (async () => {
-      await loadScript(`${basePath}/wasm-gc/chroma4j.wasm-runtime.js`);
-      const teavm = await globalThis.TeaVM.wasmGC.load(`${basePath}/wasm-gc/chroma4j.wasm`);
+      await loadScript(`${basePath}/wasm-gc/chroma-wasm.wasm-runtime.js`);
+      const teavm = await globalThis.TeaVM.wasmGC.load(`${basePath}/wasm-gc/chroma-wasm.wasm`);
       if (teavm.exports.main) {
         teavm.exports.main([]);
       }
