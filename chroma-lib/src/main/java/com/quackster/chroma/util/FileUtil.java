@@ -98,11 +98,11 @@ public class FileUtil {
                 
                 if (endsWith) {
                     if (fileNameWithoutExt.endsWith(fileNameContains)) {
-                        return file.getAbsolutePath();
+                        return file.getPath();
                     }
                 } else {
                     if (fileNameWithoutExt.contains(fileNameContains)) {
-                        return file.getAbsolutePath();
+                        return file.getPath();
                     }
                 }
             }
