@@ -70,7 +70,6 @@ public class HomeController {
             boolean cropImage = parseBoolean(crop);
             String renderCanvasColour = canvas;
             boolean renderIcon = parseBoolean(icon);
-            boolean generateGif = parseBoolean(gif);
             
             // Validate state and color
             if (renderState >= 101) {
@@ -87,15 +86,14 @@ public class HomeController {
             // Create unique filename hash
             String fileNameUnique = sprite + isSmallFurni + renderState + renderDirection + 
                                   colorId + renderShadows + renderBackground + 
-                                  renderCanvasColour + cropImage + renderIcon + generateGif;
+                                  renderCanvasColour + cropImage + renderIcon;
             String hashedUniqueName = hash(fileNameUnique);
             
             // Create export directory
             Path exportDir = Paths.get("furni_export", sprite, "export");
             Files.createDirectories(exportDir);
             
-            String fileExtension = generateGif ? ".gif" : ".png";
-            Path cachedImagePath = exportDir.resolve(hashedUniqueName + fileExtension);
+            Path cachedImagePath = exportDir.resolve(hashedUniqueName + ".png");
             
             // Check if cached image exists
             if (!Files.exists(cachedImagePath)) {
@@ -119,8 +117,7 @@ public class HomeController {
                     renderBackground,
                     renderCanvasColour,
                     cropImage,
-                    renderIcon,
-                    generateGif
+                    renderIcon
                 );
                 
                 furni.run();
@@ -144,11 +141,7 @@ public class HomeController {
                 }
                 
                 HttpHeaders headers = new HttpHeaders();
-                if (generateGif) {
-                    headers.setContentType(MediaType.IMAGE_GIF);
-                } else {
-                    headers.setContentType(MediaType.IMAGE_PNG);
-                }
+                headers.setContentType(MediaType.IMAGE_PNG);
                 
                 return ResponseEntity.ok()
                     .headers(headers)
