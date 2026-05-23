@@ -971,7 +971,12 @@ public class ChromaFurniture {
         }
         
         try {
-            hexString = hexString.replace("#", "");
+            if (hexString.length() == 3) {
+                int r = Integer.parseInt(hexString.substring(0, 1) + hexString.substring(0, 1), 16);
+                int g = Integer.parseInt(hexString.substring(1, 2) + hexString.substring(1, 2), 16);
+                int b = Integer.parseInt(hexString.substring(2, 3) + hexString.substring(2, 3), 16);
+                return new Color(r, g, b);
+            }
             if (hexString.length() == 6) {
                 int r = Integer.parseInt(hexString.substring(0, 2), 16);
                 int g = Integer.parseInt(hexString.substring(2, 4), 16);

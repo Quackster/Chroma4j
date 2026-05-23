@@ -772,11 +772,21 @@ function parseXml(text, name) {
 }
 
 function parseHex(value) {
-  const hex = value.replace("#", "");
+  const hex = String(value || "");
+  if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+    return {
+      r: Number.parseInt(hex[0] + hex[0], 16),
+      g: Number.parseInt(hex[1] + hex[1], 16),
+      b: Number.parseInt(hex[2] + hex[2], 16)
+    };
+  }
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return { r: 254, g: 254, b: 254 };
+  }
   return {
-    r: Number.parseInt(hex.slice(0, 2), 16) || 0,
-    g: Number.parseInt(hex.slice(2, 4), 16) || 0,
-    b: Number.parseInt(hex.slice(4, 6), 16) || 0
+    r: Number.parseInt(hex.slice(0, 2), 16),
+    g: Number.parseInt(hex.slice(2, 4), 16),
+    b: Number.parseInt(hex.slice(4, 6), 16)
   };
 }
 
