@@ -2,6 +2,7 @@ package com.quackster.chroma.extractor;
 
 import com.jpexs.decompiler.flash.SWF;
 import com.jpexs.decompiler.flash.tags.DefineBinaryDataTag;
+import com.jpexs.decompiler.flash.tags.DefineBitsLossless2Tag;
 import com.jpexs.decompiler.flash.tags.Tag;
 import com.jpexs.decompiler.flash.tags.base.ImageTag;
 import com.jpexs.decompiler.flash.types.RECT;
@@ -97,7 +98,7 @@ public class FurniExtractor {
 
             // 3) Extract images
             for (Tag tag : swf.getTags()) {
-                if (tag instanceof ImageTag) {
+                if (tag instanceof DefineBitsLossless2Tag) {
                     ImageTag imageTag = (ImageTag) tag;
                     imageTags.put(imageTag.getCharacterId(), imageTag);
                 }

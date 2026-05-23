@@ -75,9 +75,7 @@ public final class Chroma4jWasm {
                     int id = tag.u16();
                     tag.skip(4);
                     binaries.put(id, tag.bytes(tag.remaining()));
-                } else if (code == 21 || code == 35 || code == 90) {
-                    readJpegLike(code, tag, images);
-                } else if (code == 20 || code == 36) {
+                } else if (code == 36) {
                     readLossless(code, tag, images);
                 }
             }
@@ -123,20 +121,6 @@ public final class Chroma4jWasm {
             }
         }
 
-        private static void readJpegLike(int code, Reader tag, Map<Integer, ImageAsset> images) throws IOException, DataFormatException {
-            int id = tag.u16();
-            if (code == 35) {
-                int alphaOffset = tag.i32();
-                byte[] imageBytes = tag.bytes(Math.min(alphaOffset, tag.remaining()));
-                if (tag.remaining() > 0) {
-                    tag.bytes(tag.remaining());
-                }
-                images.put(id, ImageAsset.encoded("", mime(imageBytes), imageBytes));
-                return;
-            }
-            images.put(id, ImageAsset.encoded("", mime(tag.peekRemaining()), tag.bytes(tag.remaining())));
-        }
-
         private static void readLossless(int code, Reader tag, Map<Integer, ImageAsset> images) throws IOException, DataFormatException {
             int id = tag.u16();
             int format = tag.u8();
@@ -154,17 +138,10 @@ public final class Chroma4jWasm {
             for (int i = 0; i < pixels; i++) {
                 int source = i * 4;
                 int target = i * 4;
-                if (code == 36) {
-                    rgba[target] = inflated[source + 1];
-                    rgba[target + 1] = inflated[source + 2];
-                    rgba[target + 2] = inflated[source + 3];
-                    rgba[target + 3] = inflated[source];
-                } else {
-                    rgba[target] = inflated[source + 2];
-                    rgba[target + 1] = inflated[source + 1];
-                    rgba[target + 2] = inflated[source];
-                    rgba[target + 3] = (byte) 255;
-                }
+                rgba[target] = inflated[source + 1];
+                rgba[target + 1] = inflated[source + 2];
+                rgba[target + 2] = inflated[source + 3];
+                rgba[target + 3] = inflated[source];
             }
             images.put(id, ImageAsset.raw("", width, height, rgba));
         }
@@ -217,19 +194,6 @@ public final class Chroma4jWasm {
             }
             cleaned = cleaned.replace("<graphics>", "").replace("</graphics>", "");
             return cleaned;
-        }
-
-        private static String mime(byte[] data) {
-            if (data.length >= 8 && (data[0] & 255) == 137 && data[1] == 80 && data[2] == 78 && data[3] == 71) {
-                return "image/png";
-            }
-            if (data.length >= 3 && (data[0] & 255) == 255 && (data[1] & 255) == 216 && (data[2] & 255) == 255) {
-                return "image/jpeg";
-            }
-            if (data.length >= 3 && data[0] == 71 && data[1] == 73 && data[2] == 70) {
-                return "image/gif";
-            }
-            return "application/octet-stream";
         }
 
         private static void skipRect(Reader reader) throws IOException {
