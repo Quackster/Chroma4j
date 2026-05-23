@@ -756,7 +756,10 @@ function parseXml(text, name) {
 }
 
 function parseHex(value) {
-  const hex = String(value || "");
+  if (value === null || value === undefined) {
+    throw new TypeError("Cannot read properties of null (reading 'toLowerCase')");
+  }
+  const hex = String(value);
   if (/^[0-9a-fA-F]{3}$/.test(hex)) {
     return {
       r: Number.parseInt(hex[0] + hex[0], 16),
