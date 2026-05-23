@@ -28,19 +28,19 @@ public class HomeController {
     @GetMapping("/")
     public ResponseEntity<byte[]> index(
             @RequestParam(name = "sprite", required = false) String sprite,
-            @RequestParam(name = "small", required = false, defaultValue = "false") String small,
-            @RequestParam(name = "s", required = false, defaultValue = "false") String s,
-            @RequestParam(name = "state", required = false, defaultValue = "0") String state,
+            @RequestParam(name = "small", required = false) String small,
+            @RequestParam(name = "s", required = false) String s,
+            @RequestParam(name = "state", required = false) String state,
             @RequestParam(name = "direction", required = false) String direction,
             @RequestParam(name = "rotation", required = false) String rotation,
             @RequestParam(name = "color", required = false) String color,
             @RequestParam(name = "colour", required = false) String colour,
-            @RequestParam(name = "bg", required = false, defaultValue = "false") String bg,
-            @RequestParam(name = "crop", required = false, defaultValue = "true") String crop,
-            @RequestParam(name = "shadow", required = false, defaultValue = "false") String shadow,
-            @RequestParam(name = "canvas", required = false, defaultValue = "transparent") String canvas,
-            @RequestParam(name = "icon", required = false, defaultValue = "false") String icon,
-            @RequestParam(name = "gif", required = false, defaultValue = "false") String gif
+            @RequestParam(name = "bg", required = false) String bg,
+            @RequestParam(name = "crop", required = false) String crop,
+            @RequestParam(name = "shadow", required = false) String shadow,
+            @RequestParam(name = "canvas", required = false) String canvas,
+            @RequestParam(name = "icon", required = false) String icon,
+            @RequestParam(name = "gif", required = false) String gif
     ) {
 
         boolean isSmallFurni = parseBoolean(small) || parseBoolean(s);
@@ -62,10 +62,19 @@ public class HomeController {
                 colorId = 0;
             }
         }
-        boolean renderBackground = !("0".equals(bg) || "false".equals(bg));
+        boolean renderBackground = false;
+        if (bg != null) {
+            renderBackground = !("0".equals(bg) || "false".equals(bg));
+        }
         boolean renderShadows = parseBoolean(shadow);
-        boolean cropImage = parseBoolean(crop);
-        String renderCanvasColour = canvas;
+        boolean cropImage = true;
+        if (crop != null) {
+            cropImage = parseBoolean(crop);
+        }
+        String renderCanvasColour = "transparent";
+        if (canvas != null) {
+            renderCanvasColour = canvas;
+        }
         boolean renderIcon = parseBoolean(icon);
 
         if (renderState >= 101) {
