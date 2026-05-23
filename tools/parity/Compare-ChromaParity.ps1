@@ -75,7 +75,8 @@ var furni = new ChromaFurniture(
     bool.Parse(args[8]),
     bool.Parse(args[9]));
 
-furni.Run();
+var outputName = furni.Run();
+File.WriteAllText(args[10] + ".name", outputName);
 File.WriteAllBytes(args[10], furni.CreateImage());
 return 0;
 '@
@@ -129,7 +130,8 @@ public class ChromaParityJavaRender {
             Boolean.parseBoolean(args[8]),
             Boolean.parseBoolean(args[9]));
 
-        furni.run();
+        String outputName = furni.run();
+        Files.writeString(Paths.get(args[10] + ".name"), outputName);
         byte[] png = furni.createImage();
         if (png == null) {
             System.err.println("renderer returned null");
@@ -183,6 +185,14 @@ function Invoke-RendererOutput([string] $Command, [string[]] $Arguments, [string
         ($output -join "`n").Trim()
     } finally {
         Pop-Location
+    }
+}
+
+function Compare-TextFile([string] $ExpectedPath, [string] $ActualPath, [string] $Description) {
+    $expected = [System.IO.File]::ReadAllText((Resolve-FullPath $ExpectedPath))
+    $actual = [System.IO.File]::ReadAllText((Resolve-FullPath $ActualPath))
+    if ($expected -ne $actual) {
+        throw "$Description differs. Expected '$expected' but got '$actual'."
     }
 }
 
@@ -579,6 +589,7 @@ foreach ($case in $cases) {
 
     Invoke-Renderer "dotnet" (@($csharpHarnessDll) + $args + @($csOutput)) $workspace
     Invoke-Renderer "java" (@("-cp", "$javaClasses;$classpath", "ChromaParityJavaRender") + $args + @($javaOutput)) $workspace
+    Compare-TextFile "$csOutput.name" "$javaOutput.name" "$($case.Name) output filename"
     $results.Add((Compare-Png $csOutput $javaOutput))
 
     $wasmCases.Add([pscustomobject]@{
