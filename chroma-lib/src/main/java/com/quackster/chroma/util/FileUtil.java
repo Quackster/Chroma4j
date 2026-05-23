@@ -37,6 +37,10 @@ public class FileUtil {
             }
 
             for (File file : files) {
+                if (!file.isFile()) {
+                    continue;
+                }
+
                 String fileNameWithoutExt = getFileNameWithoutExtension(file.getName());
                 
                 if (fileNameWithoutExt.contains(fileNameContains)) {
@@ -86,6 +90,10 @@ public class FileUtil {
             }
 
             for (File file : files) {
+                if (!file.isFile()) {
+                    continue;
+                }
+
                 String fileNameWithoutExt = getFileNameWithoutExtension(file.getName());
                 
                 if (endsWith) {
