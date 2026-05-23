@@ -117,11 +117,9 @@ public class FurniExtractor {
                 Path imagePath = exportDir.resolve(xmlName + ".png");
                 
                 if (!Files.exists(imagePath)) {
-                    try {
-                        BufferedImage image = imageTag.getImageCached().getBufferedImage();; //.getImage();
-                        ImageIO.write(image, "PNG", imagePath.toFile());
-                    } catch (Exception e) {
-                        System.err.println("Error extracting image " + xmlName + ": " + e.getMessage());
+                    BufferedImage image = imageTag.getImageCached().getBufferedImage();
+                    if (!ImageIO.write(image, "PNG", imagePath.toFile())) {
+                        throw new IOException("No PNG writer for extracted image: " + xmlName);
                     }
                 }
             }
