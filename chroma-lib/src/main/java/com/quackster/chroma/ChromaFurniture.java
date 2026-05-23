@@ -17,7 +17,6 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
-import com.madgag.gif.fmsware.AnimatedGifEncoder;
 
 /**
  * Main class for rendering Habbo furniture from SWF files
@@ -45,7 +44,6 @@ public class ChromaFurniture {
     private String renderCanvasColour;
     private boolean cropImage;
     private boolean isIcon;
-    private boolean generateGif;
     private boolean mirrorFallbackH;
     private int animationCount;
     private TreeMap<Integer, ChromaAnimation> animations;
@@ -92,14 +90,6 @@ public class ChromaFurniture {
                           int renderDirection, int colourId, boolean renderShadows,
                           boolean renderBackground, String renderCanvasColour, 
                           boolean cropImage, boolean renderIcon) {
-        this(inputFileName, isSmallFurni, renderState, renderDirection, colourId, 
-             renderShadows, renderBackground, renderCanvasColour, cropImage, renderIcon, false);
-    }
-    
-    public ChromaFurniture(String inputFileName, boolean isSmallFurni, int renderState, 
-                          int renderDirection, int colourId, boolean renderShadows,
-                          boolean renderBackground, String renderCanvasColour, 
-                          boolean cropImage, boolean renderIcon, boolean generateGif) {
         this.fileName = inputFileName;
         this.isSmallFurni = isSmallFurni;
         this.assets = new ArrayList<>();
@@ -115,7 +105,6 @@ public class ChromaFurniture {
         this.renderCanvasColour = renderCanvasColour;
         this.cropImage = cropImage;
         this.isIcon = renderIcon;
-        this.generateGif = generateGif;
         this.animations = new TreeMap<>();
     }
 
@@ -504,10 +493,6 @@ public class ChromaFurniture {
     }
 
     public byte[] createImage() {
-        if (this.generateGif) {
-            return createGif();
-        }
-        
         List<ChromaAsset> buildQueue = createBuildQueue();
         
         if (buildQueue == null) {
@@ -595,180 +580,6 @@ public class ChromaFurniture {
         }
     }
 
-    /**
-     * Collects all unique frame combinations from all animation layers for the current render state
-     */
-    private List<Map<Integer, Integer>> collectAllFrameCombinations() {
-        List<Map<Integer, Integer>> frameCombinations = new ArrayList<>();
-        
-        // Collect frames for each layer from the current render state
-        List<List<Integer>> layerFrames = new ArrayList<>();
-        int maxFramesInAnyLayer = 0;
-        
-        for (int layer = 0; layer < this.highestAnimationLayer; layer++) {
-            List<Integer> framesForLayer = new ArrayList<>();
-            
-            if (animations.containsKey(layer) &&
-                !animations.get(layer).getStates().isEmpty() &&
-                animations.get(layer).getStates().containsKey(renderState)) {
-                
-                ChromaFrame frameData = animations.get(layer).getStates().get(renderState);
-                for (String frameIdStr : frameData.getFrames()) {
-                    try {
-                        int frameId = Integer.parseInt(frameIdStr);
-                        if (!framesForLayer.contains(frameId)) {
-                            framesForLayer.add(frameId);
-                        }
-                    } catch (NumberFormatException e) {
-                        // Skip invalid frame IDs
-                    }
-                }
-            }
-            
-            // If no frames found for this layer, use default frame 0
-            if (framesForLayer.isEmpty()) {
-                framesForLayer.add(0);
-            }
-            
-            layerFrames.add(framesForLayer);
-            maxFramesInAnyLayer = Math.max(maxFramesInAnyLayer, framesForLayer.size());
-        }
-        
-        // Generate frame combinations by cycling through all frames
-        // Use the maximum number of frames to ensure we cycle through all available frames
-        for (int frameIndex = 0; frameIndex < maxFramesInAnyLayer; frameIndex++) {
-            Map<Integer, Integer> combination = new HashMap<>();
-            for (int layer = 0; layer < this.highestAnimationLayer; layer++) {
-                List<Integer> framesForLayer = layerFrames.get(layer);
-                // Cycle through frames for this layer
-                int frameIndexForLayer = frameIndex % framesForLayer.size();
-                combination.put(layer, framesForLayer.get(frameIndexForLayer));
-            }
-            frameCombinations.add(combination);
-        }
-        
-        // If we still have no combinations, create a default one
-        if (frameCombinations.isEmpty()) {
-            Map<Integer, Integer> defaultCombination = new HashMap<>();
-            for (int layer = 0; layer < this.highestAnimationLayer; layer++) {
-                defaultCombination.put(layer, 0);
-            }
-            frameCombinations.add(defaultCombination);
-        }
-        
-        return frameCombinations;
-    }
-
-    /**
-     * Creates a build queue for a specific frame combination
-     */
-    private List<ChromaAsset> createBuildQueueForFrames(Map<Integer, Integer> frameMap) {
-        List<ChromaAsset> candidates = assets.stream()
-            .filter(x -> x.isSmall() == isSmallFurni)
-            .collect(Collectors.toList());
-        
-        List<ChromaAsset> validDirections = selectFallbackDirection(candidates, requestedRenderDirection);
-        
-        candidates = validDirections;
-        List<ChromaAsset> renderFrames = new ArrayList<>();
-        
-        for (int layer = 0; layer < this.highestAnimationLayer; layer++) {
-            int frame = frameMap.getOrDefault(layer, 0);
-            
-            final int frameToFind = frame;
-            final int layerToFind = layer;
-            renderFrames.addAll(candidates.stream()
-                .filter(x -> x.getLayer() == layerToFind && x.getFrame() == frameToFind)
-                .collect(Collectors.toList()));
-        }
-        
-        if (!this.renderShadows) {
-            renderFrames = renderFrames.stream()
-                .filter(x -> !x.isShadow())
-                .collect(Collectors.toList());
-        }
-        
-        renderFrames.sort(Comparator.comparingInt(ChromaAsset::getZ));
-        return renderFrames;
-    }
-
-    /**
-     * Renders a single frame image with a specific frame combination
-     */
-    private BufferedImage renderFrameImage(Map<Integer, Integer> frameMap) {
-        List<ChromaAsset> buildQueue = createBuildQueueForFrames(frameMap);
-        
-        if (buildQueue == null) {
-            return null;
-        }
-        
-        List<Color> cropColours = new ArrayList<>();
-        
-        if (this.cropImage) {
-            if (this.renderBackground) {
-                cropColours.add(new Color(142, 142, 94));
-                cropColours.add(new Color(152, 152, 101));
-            } else {
-                cropColours.add(hexToColor(this.renderCanvasColour));
-            }
-        }
-        
-        BufferedImage canvas = copyImage(drawingCanvas);
-        Graphics2D g = canvas.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        
-        for (ChromaAsset asset : buildQueue) {
-            String imagePath = asset.getImagePath();
-            if (imagePath == null) continue;
-            
-            try {
-                BufferedImage image = ImageIO.read(new File(imagePath));
-                
-                if (asset.getAlpha() != -1) {
-                    image = tintImage(image, "FFFFFF", asset.getAlpha());
-                }
-                
-                if (asset.getColourCode() != null) {
-                    image = tintImage(image, asset.getColourCode(), 255);
-                }
-                
-                if (asset.isShadow()) {
-                    image = applyOpacity(image, 0.2f);
-                }
-                
-                // Handle different ink modes
-                int x = canvas.getWidth() - asset.getImageX();
-                int y = canvas.getHeight() - asset.getImageY();
-                
-                if ("ADD".equals(asset.getInk()) || "33".equals(asset.getInk())) {
-                    // Add Pin (33): Add RGB values and clamp to 255
-                    applyAddPinBlending(canvas, image, x, y);
-                } else {
-                    applyNormalBlending(canvas, image, x, y);
-                }
-                
-            } catch (IOException e) {
-                System.err.println("Error loading image: " + imagePath);
-                e.printStackTrace();
-            }
-        }
-        
-        g.dispose();
-        
-        BufferedImage finalImage = canvas;
-        
-        if (cropImage && !cropColours.isEmpty()) {
-            finalImage = ImageUtil.trimBitmap(canvas, cropColours.toArray(new Color[0]));
-        }
-
-        if (mirrorFallbackH) {
-            finalImage = flipHorizontal(finalImage);
-        }
-        
-        return finalImage;
-    }
-
     private List<ChromaAsset> selectFallbackDirection(List<ChromaAsset> candidates, int requestedDirection) {
         mirrorFallbackH = false;
 
@@ -806,58 +617,6 @@ public class ChromaFurniture {
         g.drawImage(image, image.getWidth(), 0, -image.getWidth(), image.getHeight(), null);
         g.dispose();
         return flipped;
-    }
-
-    /**
-     * Creates a GIF by cycling through all available frames
-     */
-    private byte[] createGif() {
-        List<Map<Integer, Integer>> frameCombinations = collectAllFrameCombinations();
-        
-        if (frameCombinations.isEmpty()) {
-            // Fallback to single frame if no combinations found
-            return createImage();
-        }
-        
-        List<BufferedImage> frames = new ArrayList<>();
-        
-        // Render each frame combination
-        for (Map<Integer, Integer> frameMap : frameCombinations) {
-            BufferedImage frameImage = renderFrameImage(frameMap);
-            if (frameImage != null) {
-                frames.add(frameImage);
-            }
-        }
-        
-        if (frames.isEmpty()) {
-            return null;
-        }
-        
-        // If only one frame, return as PNG
-        if (frames.size() == 1) {
-            return renderImage(frames.get(0));
-        }
-        
-        // Create GIF from frames
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            AnimatedGifEncoder encoder = new AnimatedGifEncoder();
-            encoder.setRepeat(0); // 0 = infinite loop
-            encoder.setDelay(100); // 100ms delay between frames (10 fps)
-            encoder.start(baos);
-            
-            // Write all frames
-            for (BufferedImage frame : frames) {
-                encoder.addFrame(frame);
-            }
-            
-            encoder.finish();
-            return baos.toByteArray();
-        } catch (Exception e) {
-            System.err.println("Error creating GIF: " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        }
     }
 
     private BufferedImage tintImage(BufferedImage image, String colourCode, int alpha) {
@@ -1041,7 +800,7 @@ public class ChromaFurniture {
             name += "_colour" + this.colourId;
         }
         
-        return name + (generateGif ? ".gif" : ".png");
+        return name + ".png";
     }
 
     private String getFileNameWithoutExtension(String fileName) {
