@@ -31,6 +31,26 @@ tasks.named("assemble") {
     dependsOn tasks.named("buildWasmGC")
 }
 
+tasks.register("verifyWasmDist") {
+    dependsOn tasks.named("buildWasmGC")
+
+    def wasmFile = file("${rootDir}/web/dist/wasm-gc/chroma-wasm.wasm")
+    def runtimeFile = file("${rootDir}/web/dist/wasm-gc/chroma-wasm.wasm-runtime.js")
+    inputs.files(wasmFile, runtimeFile)
+
+    doLast {
+        [wasmFile, runtimeFile].each { artifact ->
+            if (!artifact.isFile() || artifact.length() == 0L) {
+                throw new GradleException("Missing or empty WASM release artifact: ${artifact}")
+            }
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn tasks.named("verifyWasmDist")
+}
+
 tasks.named("clean") {
     delete file("${rootDir}/web/dist/wasm-gc")
 }

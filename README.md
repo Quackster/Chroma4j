@@ -115,6 +115,12 @@ node --check web\dist\main.js
 Check that the TeaVM runtime can load the generated WASM and expose the parser:
 
 ```powershell
+.\gradlew.bat :chroma-wasm:verifyWasmDist
+```
+
+Then run the runtime smoke check:
+
+```powershell
 node -e "const fs=require('fs'); const runtime=fs.readFileSync('web/dist/wasm-gc/chroma-wasm.wasm-runtime.js','utf8'); (0,eval)(runtime); (async()=>{ const teavm=await globalThis.TeaVM.wasmGC.load('web/dist/wasm-gc/chroma-wasm.wasm'); const result=JSON.parse(teavm.exports.parseSwfBase64(Buffer.from('not-a-swf').toString('base64'), 'bad')); console.log(result.ok === false); })().catch(e=>{ console.error(e); process.exit(1); });"
 ```
 
