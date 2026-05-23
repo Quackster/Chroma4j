@@ -78,9 +78,9 @@ public class HomeController {
             return null;
         }
 
-        String fileNameUnique = sprite + isSmallFurni + renderState + renderDirection +
-                              colorId + renderShadows + renderBackground +
-                              renderCanvasColour + cropImage + renderIcon;
+        String fileNameUnique = sprite + csharpBool(isSmallFurni) + renderState + renderDirection +
+                              colorId + csharpBool(renderShadows) + csharpBool(renderBackground) +
+                              renderCanvasColour + csharpBool(cropImage) + csharpBool(renderIcon);
         String hashedUniqueName = hash(fileNameUnique);
 
         Path exportDir = Paths.get("furni_export", sprite, "export");
@@ -155,6 +155,10 @@ public class HomeController {
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    private static String csharpBool(boolean value) {
+        return value ? "True" : "False";
     }
     
     /**
