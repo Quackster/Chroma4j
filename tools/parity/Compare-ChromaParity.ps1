@@ -339,8 +339,10 @@ const server = http.createServer((req, res) => {
 
 server.listen(0, "127.0.0.1", async () => {
   const port = server.address().port;
-  const browser = await chromium.launch({ headless: true, executablePath: chromePath });
+  let browser;
+  let exitCode = 0;
   try {
+    browser = await chromium.launch({ headless: true, executablePath: chromePath });
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${port}/web/dist/index.html`);
     for (const item of cases) {
@@ -371,9 +373,14 @@ server.listen(0, "127.0.0.1", async () => {
       }
       fs.writeFileSync(item.wasmOutput, Buffer.from(dataUrl.split(",")[1], "base64"));
     }
+  } catch (error) {
+    exitCode = 1;
+    console.error(error && error.stack ? error.stack : error);
   } finally {
-    await browser.close();
-    server.close();
+    if (browser) {
+      await browser.close();
+    }
+    server.close(() => process.exit(exitCode));
   }
 });
 '@

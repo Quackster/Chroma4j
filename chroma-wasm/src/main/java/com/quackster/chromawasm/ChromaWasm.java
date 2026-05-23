@@ -187,12 +187,14 @@ public final class ChromaWasm {
         }
 
         private static String cleanXml(String xml) {
-            String cleaned = xml.replace("\uFEFF", "");
-            int declaration = cleaned.indexOf("<?xml");
-            if (declaration > 0) {
-                cleaned = cleaned.substring(declaration);
+            String cleaned = xml;
+            if (cleaned.indexOf("\n<?xml") >= 0) {
+                cleaned = cleaned.replace("\n<?xml", "<?xml");
             }
-            cleaned = cleaned.replace("<graphics>", "").replace("</graphics>", "");
+            if (cleaned.indexOf("<graphics>") >= 0) {
+                cleaned = cleaned.replace("<graphics>", "");
+                cleaned = cleaned.replace("</graphics>", "            ");
+            }
             return cleaned;
         }
 
