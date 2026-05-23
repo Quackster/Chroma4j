@@ -73,6 +73,16 @@ document.body.append(result.canvas);
 const png = await result.blob();
 ```
 
+`result.blob()` returns a browser `Blob` containing the rendered PNG bytes. Use it when you want to upload the PNG, download it, or create an object URL.
+
+To show the render in an `<img>` using a base64 data URL:
+
+```js
+const img = document.createElement("img");
+img.src = result.dataUrl();
+document.body.append(img);
+```
+
 You can also provide SWF bytes directly:
 
 ```js
