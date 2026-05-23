@@ -28,12 +28,12 @@ public class FileUtil {
         try {
             File dir = new File(outputDirectory);
             if (!dir.exists() || !dir.isDirectory()) {
-                return null;
+                throw new RuntimeException("Directory does not exist: " + outputDirectory);
             }
 
             File[] files = dir.listFiles();
             if (files == null) {
-                return null;
+                throw new RuntimeException("Unable to list directory: " + outputDirectory);
             }
 
             for (File file : files) {
@@ -60,7 +60,7 @@ public class FileUtil {
                 }
             }
         } catch (IOException | ParserConfigurationException | SAXException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
         
         return null;
@@ -77,12 +77,12 @@ public class FileUtil {
         try {
             File dir = new File(outputDirectory);
             if (!dir.exists() || !dir.isDirectory()) {
-                return null;
+                throw new RuntimeException("Directory does not exist: " + outputDirectory);
             }
 
             File[] files = dir.listFiles();
             if (files == null) {
-                return null;
+                throw new RuntimeException("Unable to list directory: " + outputDirectory);
             }
 
             for (File file : files) {
@@ -99,7 +99,7 @@ public class FileUtil {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
         
         return null;
