@@ -63,23 +63,26 @@ async function renderPackage(furni, options, canvas) {
   const visualizationXml = parseXml(furni.xml.visualization, "visualization");
   const images = await decodeImages(furni.images);
   const aliases = buildImageAliases(furni.sprite, assetsXml, images);
+  const background = options.background ? await loadImage(`${options.basePath}/bg.png`) : null;
+  options.renderWidth = background?.width || 1200;
+  options.renderHeight = background?.height || 1200;
   const renderAssets = collectWithDirectionFallback(furni.sprite, assetsXml, visualizationXml, aliases, options);
   if (!renderAssets.length) {
     throw new Error("No renderable furni assets found for the selected options");
   }
 
   const working = document.createElement("canvas");
-  working.width = 1200;
-  working.height = 1200;
+  working.width = options.renderWidth;
+  working.height = options.renderHeight;
   const ctx = working.getContext("2d", { willReadFrequently: true });
   ctx.imageSmoothingEnabled = false;
-  fillCanvas(ctx, working, options.canvas);
+  fillCanvas(ctx, working, options.canvas, background);
 
   for (const asset of renderAssets) {
     drawAsset(ctx, working, asset);
   }
 
-  const crop = options.crop ? cropBounds(ctx, working, options.canvas) : { x: 0, y: 0, width: working.width, height: working.height };
+  const crop = options.crop ? cropBounds(ctx, working, trimColors(options)) : { x: 0, y: 0, width: working.width, height: working.height };
   canvas.width = crop.width;
   canvas.height = crop.height;
   const outputCtx = canvas.getContext("2d");
@@ -112,8 +115,8 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
       name,
       image: imageEntry.image,
       flipH: attr(node, "flipH") === "1" || imageEntry.flipH,
-      x: ((attr(node, "flipH") === "1" || imageEntry.flipH) ? imageEntry.image.width - numberAttr(node, "x", 0) : numberAttr(node, "x", 0)) + 600,
-      y: numberAttr(node, "y", 0) + 600,
+      x: ((attr(node, "flipH") === "1" || imageEntry.flipH) ? imageEntry.image.width - numberAttr(node, "x", 0) : numberAttr(node, "x", 0)) + (options.renderWidth / 2),
+      y: numberAttr(node, "y", 0) + (options.renderHeight / 2),
       z: (layerInfo.z ?? parsed.layer) + parsed.layer,
       layer: parsed.layer,
       direction: parsed.direction,
@@ -528,30 +531,29 @@ function applyOpacity(imageData, opacity) {
   }
 }
 
-function cropBounds(ctx, canvas, canvasColor) {
+function cropBounds(ctx, canvas, colors) {
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  const trim = parseCanvasColor(canvasColor);
   let top = 0;
   for (let y = 0; y < canvas.height; y++) {
-    if (!allMatchingRow(data, canvas.width, y, trim)) break;
+    if (!allMatchingRow(data, canvas.width, y, colors)) break;
     top = y;
   }
 
   let bottom = 0;
   for (let y = canvas.height - 1; y >= 0; y--) {
-    if (!allMatchingRow(data, canvas.width, y, trim)) break;
+    if (!allMatchingRow(data, canvas.width, y, colors)) break;
     bottom = y;
   }
 
   let left = 0;
   for (let x = 0; x < canvas.width; x++) {
-    if (!allMatchingColumn(data, canvas.width, canvas.height, x, trim)) break;
+    if (!allMatchingColumn(data, canvas.width, canvas.height, x, colors)) break;
     left = x;
   }
 
   let right = 0;
   for (let x = canvas.width - 1; x >= 0; x--) {
-    if (!allMatchingColumn(data, canvas.width, canvas.height, x, trim)) break;
+    if (!allMatchingColumn(data, canvas.width, canvas.height, x, colors)) break;
     right = x;
   }
 
@@ -571,18 +573,18 @@ function cropBounds(ctx, canvas, canvasColor) {
   return { x: left, y: top, width, height };
 }
 
-function allMatchingRow(data, width, y, color) {
+function allMatchingRow(data, width, y, colors) {
   for (let x = 0; x < width; x++) {
-    if (!samePixel(data, (y * width + x) * 4, color)) {
+    if (!sameAnyPixel(data, (y * width + x) * 4, colors)) {
       return false;
     }
   }
   return true;
 }
 
-function allMatchingColumn(data, width, height, x, color) {
+function allMatchingColumn(data, width, height, x, colors) {
   for (let y = 0; y < height; y++) {
-    if (!samePixel(data, (y * width + x) * 4, color)) {
+    if (!sameAnyPixel(data, (y * width + x) * 4, colors)) {
       return false;
     }
   }
@@ -613,12 +615,24 @@ function tightCropBounds(ctx, canvas, canvasColor) {
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
-function fillCanvas(ctx, canvas, color) {
+function fillCanvas(ctx, canvas, color, background) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if ((color || "transparent").toLowerCase() !== "transparent") {
+  if (background) {
+    ctx.drawImage(background, 0, 0);
+  } else if ((color || "transparent").toLowerCase() !== "transparent") {
     ctx.fillStyle = color.startsWith("#") ? color : `#${color}`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+}
+
+function trimColors(options) {
+  if (options.background) {
+    return [
+      { r: 142, g: 142, b: 94, a: 255 },
+      { r: 152, g: 152, b: 101, a: 255 }
+    ];
+  }
+  return [parseCanvasColor(options.canvas)];
 }
 
 function parseCanvasColor(value) {
@@ -628,6 +642,10 @@ function parseCanvasColor(value) {
 
 function samePixel(data, i, color) {
   return data[i] === color.r && data[i + 1] === color.g && data[i + 2] === color.b && data[i + 3] === color.a;
+}
+
+function sameAnyPixel(data, i, colors) {
+  return colors.some(color => samePixel(data, i, color));
 }
 
 function parseAssetName(sprite, name, icon) {
@@ -654,14 +672,15 @@ function normalizeOptions(options) {
   const direction = numeric(options.rotation ?? options.direction, 0);
   return {
     sprite: options.sprite || "",
-    small: Boolean(options.small || options.s),
+    small: optionBoolean(options.small) || optionBoolean(options.s),
     state: Math.min(numeric(options.state, 0), 100),
     direction,
     color: Math.min(Math.max(numeric(options.color ?? options.colour, 0), numeric(options.colour ?? options.color, 0)), 15),
     canvas: options.canvas || "transparent",
-    crop: options.crop !== false,
-    shadow: Boolean(options.shadow),
-    icon: Boolean(options.icon),
+    crop: options.crop === undefined ? true : optionBoolean(options.crop),
+    shadow: optionBoolean(options.shadow),
+    icon: optionBoolean(options.icon),
+    background: optionBoolean(options.background) || optionBoolean(options.bg),
     basePath: options.basePath || "."
   };
 }
@@ -669,6 +688,10 @@ function normalizeOptions(options) {
 function numeric(value, fallback) {
   const n = Number.parseInt(value, 10);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function optionBoolean(value) {
+  return value === true || value === 1 || value === "1" || (typeof value === "string" && value.toLowerCase() === "true");
 }
 
 function attr(node, name) {
@@ -717,13 +740,17 @@ async function encodedToImage(item) {
   }
   const url = URL.createObjectURL(blob);
   try {
-    const image = new Image();
-    image.src = url;
-    await image.decode();
-    return image;
+    return await loadImage(url);
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+async function loadImage(url) {
+  const image = new Image();
+  image.src = url;
+  await image.decode();
+  return image;
 }
 
 function bytesToBase64(bytes) {

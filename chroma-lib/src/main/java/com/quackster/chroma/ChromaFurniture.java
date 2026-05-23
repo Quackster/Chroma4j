@@ -357,8 +357,8 @@ public class ChromaFurniture {
                 chromaAsset.generateImage();
             }
             
-            chromaAsset.setImageX(chromaAsset.getImageX() + (CANVAS_WIDTH / 2));
-            chromaAsset.setImageY(chromaAsset.getImageY() + (CANVAS_HEIGHT / 2));
+            chromaAsset.setImageX(chromaAsset.getImageX() + (drawingCanvas.getWidth() / 2));
+            chromaAsset.setImageY(chromaAsset.getImageY() + (drawingCanvas.getHeight() / 2));
         }
         
         if (chromaAsset.getImageName().contains("_sd_")) {
