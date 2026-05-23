@@ -321,7 +321,7 @@ public class ChromaFurniture {
             .filter(x -> !x.isShadow())
             .mapToInt(ChromaAsset::getLayer)
             .max()
-            .orElse(0) + 1;
+            .orElseThrow() + 1;
         
         // Fill in missing animation states
         for (int i = 0; i < highestAnimationLayer; i++) {
