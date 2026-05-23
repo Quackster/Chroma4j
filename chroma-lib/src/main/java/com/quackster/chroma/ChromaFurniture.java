@@ -299,19 +299,21 @@ public class ChromaFurniture {
         this.maxStates = 0;
         Document visualization = FileUtil.solveXmlFile(getXmlDirectory(), "visualization");
         
-        if (visualization != null) {
-            NodeList animations = findAnimations(visualization, isSmallFurni ? "32" : "64");
-            
-            if (animations != null) {
-                for (int i = 0; i < animations.getLength(); i++) {
-                    Node animation = animations.item(i);
-                    Node idAttr = animation.getAttributes().getNamedItem("id");
-                    
-                    if (idAttr != null) {
-                        int state = Integer.parseInt(idAttr.getNodeValue());
-                        if (state > maxStates) {
-                            maxStates = state;
-                        }
+        if (visualization == null) {
+            return;
+        }
+
+        NodeList animations = findAnimations(visualization, isSmallFurni ? "32" : "64");
+
+        if (animations != null) {
+            for (int i = 0; i < animations.getLength(); i++) {
+                Node animation = animations.item(i);
+                Node idAttr = animation.getAttributes().getNamedItem("id");
+
+                if (idAttr != null) {
+                    int state = Integer.parseInt(idAttr.getNodeValue());
+                    if (state > maxStates) {
+                        maxStates = state;
                     }
                 }
             }
