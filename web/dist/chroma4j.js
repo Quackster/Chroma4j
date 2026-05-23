@@ -173,7 +173,7 @@ function readLayers(doc, size, direction) {
   const baseLayers = childElements(firstChildElement(visualization, "layers"), "layer");
   const directionsNode = firstChildElement(visualization, "directions");
   const directionNode = childElements(directionsNode, "direction").find(node => attr(node, "id") === String(direction));
-  const directionLayers = childElements(firstChildElement(directionNode, "layers"), "layer");
+  const directionLayers = childElements(directionNode, "layer");
   const layerNodes = baseLayers.length > 0 ? baseLayers : directionLayers;
   for (const layer of layerNodes) {
     const id = numberAttr(layer, "id", -1);

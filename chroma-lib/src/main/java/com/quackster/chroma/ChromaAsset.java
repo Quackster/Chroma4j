@@ -154,10 +154,7 @@ public class ChromaAsset {
                             Node dir = directions.item(j);
                             Node idAttr = dir.getAttributes().getNamedItem("id");
                             if (idAttr != null && idAttr.getNodeValue().equals(direction)) {
-                                Node layersNode = firstDirectChild(dir, "layers");
-                                if (layersNode != null) {
-                                    return directChildren(layersNode, "layer");
-                                }
+                                return directChildren(dir, "layer");
                             }
                         }
                     }
