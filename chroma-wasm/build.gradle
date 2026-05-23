@@ -36,12 +36,25 @@ tasks.register("verifyWasmDist") {
 
     def wasmFile = file("${rootDir}/web/dist/wasm-gc/chroma-wasm.wasm")
     def runtimeFile = file("${rootDir}/web/dist/wasm-gc/chroma-wasm.wasm-runtime.js")
-    inputs.files(wasmFile, runtimeFile)
+    def staticFiles = [
+        file("${rootDir}/web/dist/index.html"),
+        file("${rootDir}/web/dist/main.js"),
+        file("${rootDir}/web/dist/chroma4j.js"),
+        file("${rootDir}/web/dist/styles.css"),
+        file("${rootDir}/web/dist/bg.png")
+    ]
+    inputs.files([wasmFile, runtimeFile] + staticFiles)
 
     doLast {
-        [wasmFile, runtimeFile].each { artifact ->
+        ([wasmFile, runtimeFile] + staticFiles).each { artifact ->
             if (!artifact.isFile() || artifact.length() == 0L) {
-                throw new GradleException("Missing or empty WASM release artifact: ${artifact}")
+                throw new GradleException("Missing or empty web/dist release artifact: ${artifact}")
+            }
+        }
+
+        [file("${rootDir}/web/dist/chroma4j.js"), file("${rootDir}/web/dist/main.js")].each { script ->
+            exec {
+                commandLine "node", "--check", script.absolutePath
             }
         }
     }

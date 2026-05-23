@@ -14,6 +14,7 @@ Chroma4j renders Habbo furni SWFs. The repository contains the original JVM rend
 - JDK 17 or newer.
 - Gradle 8.7 or newer, or use the checked-in Gradle wrapper.
 - Python 3 for serving `web/dist` locally.
+- Node.js for browser JavaScript syntax checks run by the Gradle verification task.
 - A modern browser with WebAssembly GC support.
 
 The browser build fetches SWFs directly from the browser, so HTTP SWF URLs must allow CORS. There is no server-side fetch or rendering fallback in the WASM release.
@@ -105,14 +106,14 @@ Supported first-release options mirror the server endpoint where applicable:
 
 ## Smoke Tests
 
-Check the browser JavaScript syntax:
+Check the browser JavaScript syntax directly:
 
 ```powershell
 node --check web\dist\chroma4j.js
 node --check web\dist\main.js
 ```
 
-Check that the TeaVM runtime can load the generated WASM and expose the parser:
+Check that the complete `web/dist` release has non-empty static/WASM artifacts and valid browser JavaScript syntax:
 
 ```powershell
 .\gradlew.bat :chroma-wasm:verifyWasmDist
