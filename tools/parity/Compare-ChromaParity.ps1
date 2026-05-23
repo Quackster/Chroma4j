@@ -437,7 +437,7 @@ server.listen(0, "127.0.0.1", async () => {
             bg: item.wasmBg,
             background: item.wasmBackground ?? item.background,
             canvas: item.canvas === "__CHROMA_EMPTY__" ? "" : item.canvas,
-            crop: item.crop,
+            crop: item.wasmCrop ?? item.crop,
             small: item.wasmSmall ?? item.small,
             s: item.wasmS,
             icon: item.icon,
@@ -515,6 +515,7 @@ $cases = @(
     [pscustomobject]@{ Name = "rare_dragonlamp_canvas_empty_nocrop"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "__CHROMA_EMPTY__"; Crop = $false },
     [pscustomobject]@{ Name = "rare_dragonlamp_canvas_short_hex"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "FFF"; Crop = $false },
     [pscustomobject]@{ Name = "rare_dragonlamp_canvas_hash_fallback"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "#336699"; Crop = $false },
+    [pscustomobject]@{ Name = "rare_dragonlamp_crop_true_case"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $false; WasmCrop = "True" },
     [pscustomobject]@{ Name = "rare_dragonlamp_background"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $true; Canvas = "transparent"; Crop = $true },
     [pscustomobject]@{ Name = "rare_dragonlamp_background_nocrop"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; Direction = 4; Color = 0; Shadow = $false; Background = $true; Canvas = "transparent"; Crop = $false },
     [pscustomobject]@{ Name = "rare_dragonlamp_state101"; Url = "https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf"; Swf = "rare_dragonlamp.swf"; Small = $false; State = 0; WasmState = 101; Direction = 4; Color = 0; Shadow = $false; Background = $false; Canvas = "transparent"; Crop = $true },
@@ -636,6 +637,7 @@ foreach ($case in $cases) {
         wasmGif = Get-CaseProperty $case "WasmGif"
         wasmSmall = Get-CaseProperty $case "WasmSmall"
         wasmS = Get-CaseProperty $case "WasmS"
+        wasmCrop = Get-CaseProperty $case "WasmCrop"
         canvas = $case.Canvas
         crop = $case.Crop
         small = $case.Small
