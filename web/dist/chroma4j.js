@@ -84,10 +84,7 @@ async function renderPackage(furni, options, canvas) {
   canvas.height = crop.height;
   const outputCtx = canvas.getContext("2d");
   outputCtx.imageSmoothingEnabled = false;
-  let output = cropSystemDrawingBitmap(ctx, crop);
-  if (options.mirrorFallbackH) {
-    output = flipImageDataHorizontal(output);
-  }
+  const output = cropSystemDrawingBitmap(ctx, crop);
   outputCtx.putImageData(output, 0, 0);
   return encodePng(output);
 }
@@ -146,14 +143,6 @@ function collectWithDirectionFallback(sprite, assetsXml, visualizationXml, image
   const preferred = collectRenderAssets(sprite, assetsXml, visualizationXml, images, options);
   if (preferred.length || options.icon) {
     return preferred;
-  }
-  if (options.direction === 0 && (sprite || "").toLowerCase() === "rare_dragonlamp") {
-    const mirrored = collectRenderAssets(sprite, assetsXml, visualizationXml, images, { ...options, direction: 4 });
-    if (mirrored.length) {
-      options.direction = 4;
-      options.mirrorFallbackH = true;
-      return mirrored;
-    }
   }
   for (const direction of [0, 2, 4, 6]) {
     if (direction === options.direction) continue;

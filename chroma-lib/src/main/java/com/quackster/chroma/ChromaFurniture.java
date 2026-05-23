@@ -44,7 +44,6 @@ public class ChromaFurniture {
     private String renderCanvasColour;
     private boolean cropImage;
     private boolean isIcon;
-    private boolean mirrorFallbackH;
     private int animationCount;
     private TreeMap<Integer, ChromaAnimation> animations;
     private int highestAnimationLayer;
@@ -563,10 +562,6 @@ public class ChromaFurniture {
             finalImage = ImageUtil.trimBitmap(canvas, cropColours.toArray(new Color[0]));
         }
 
-        if (mirrorFallbackH) {
-            finalImage = flipHorizontal(finalImage);
-        }
-        
         return renderImage(finalImage);
     }
 
@@ -581,23 +576,12 @@ public class ChromaFurniture {
     }
 
     private List<ChromaAsset> selectFallbackDirection(List<ChromaAsset> candidates, int requestedDirection) {
-        mirrorFallbackH = false;
-
         List<ChromaAsset> validDirections = candidates.stream()
             .filter(x -> x.getDirection() == requestedDirection)
             .collect(Collectors.toList());
 
         if (!validDirections.isEmpty()) {
             return validDirections;
-        }
-
-        if (requestedDirection == 0 && "rare_dragonlamp".equalsIgnoreCase(sprite)) {
-            validDirections = candidates.stream().filter(x -> x.getDirection() == 4).collect(Collectors.toList());
-            if (!validDirections.isEmpty()) {
-                renderDirection = 4;
-                mirrorFallbackH = true;
-                return validDirections;
-            }
         }
 
         for (int direction : new int[] {0, 2, 4, 6}) {
@@ -609,14 +593,6 @@ public class ChromaFurniture {
         }
 
         return validDirections;
-    }
-
-    private BufferedImage flipHorizontal(BufferedImage image) {
-        BufferedImage flipped = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = flipped.createGraphics();
-        g.drawImage(image, image.getWidth(), 0, -image.getWidth(), image.getHeight(), null);
-        g.dispose();
-        return flipped;
     }
 
     private BufferedImage tintImage(BufferedImage image, String colourCode, int alpha) {
