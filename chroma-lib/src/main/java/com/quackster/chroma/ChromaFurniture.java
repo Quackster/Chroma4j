@@ -496,10 +496,15 @@ public class ChromaFurniture {
         
         for (ChromaAsset asset : buildQueue) {
             String imagePath = asset.getImagePath();
-            if (imagePath == null) continue;
+            if (imagePath == null) {
+                throw new RuntimeException("Image path not found for asset: " + asset.getImageName());
+            }
             
             try {
                 BufferedImage image = ImageIO.read(new File(imagePath));
+                if (image == null) {
+                    throw new IOException("Unsupported image: " + imagePath);
+                }
                 
                 if (asset.getAlpha() != -1) {
                     image = tintImage(image, "FFFFFF", asset.getAlpha());
@@ -525,8 +530,7 @@ public class ChromaFurniture {
                 }
                 
             } catch (IOException e) {
-                System.err.println("Error loading image: " + imagePath);
-                e.printStackTrace();
+                throw new RuntimeException(e);
             }
         }
         
