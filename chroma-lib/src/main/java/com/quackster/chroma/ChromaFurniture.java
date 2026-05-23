@@ -555,8 +555,7 @@ public class ChromaFurniture {
             ImageIO.write(image, "PNG", baos);
             return baos.toByteArray();
         } catch (IOException e) {
-            e.printStackTrace();
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
