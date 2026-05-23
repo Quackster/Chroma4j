@@ -61,6 +61,10 @@ async function renderPackage(furni, options, canvas) {
   const images = await decodeImages(furni.images);
   const aliases = buildImageAliases(furni.sprite, assetsXml, images);
   const background = options.background ? await loadImage(`${options.basePath}/bg.png`) : null;
+  const maxState = readMaxState(visualizationXml, options.small ? "32" : "64", options.direction);
+  if (options.state > maxState) {
+    options.state = 0;
+  }
   options.renderWidth = background?.width || 1200;
   options.renderHeight = background?.height || 1200;
   const renderAssets = collectWithDirectionFallback(furni.sprite, assetsXml, visualizationXml, aliases, options);
@@ -205,6 +209,18 @@ function readAnimationFrames(doc, size, state) {
     }
   }
   return result;
+}
+
+function readMaxState(doc, size, direction) {
+  const visualization = [...doc.getElementsByTagName("visualization")].find(node => attr(node, "size") === size);
+  if (!visualization) return 0;
+  let animations = childElements(firstChildElement(visualization, "animations"), "animation");
+  if (animations.length === 0) {
+    const directionsNode = firstChildElement(visualization, "directions");
+    const directionNode = childElements(directionsNode, "direction").find(node => attr(node, "id") === String(direction));
+    animations = childElements(firstChildElement(directionNode, "animations"), "animation");
+  }
+  return animations.reduce((max, animation) => Math.max(max, numberAttr(animation, "id", 0)), 0);
 }
 
 function firstChildElement(node, name) {
