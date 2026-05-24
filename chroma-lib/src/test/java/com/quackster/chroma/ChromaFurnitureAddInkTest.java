@@ -4,9 +4,13 @@ import org.junit.jupiter.api.Test;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.lang.reflect.Method;
+import java.util.List;
+import javax.imageio.ImageIO;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChromaFurnitureAddInkTest {
 
@@ -47,6 +51,25 @@ class ChromaFurnitureAddInkTest {
         assertEquals(100, blendedPixel.getGreen());
         assertEquals(85, blendedPixel.getBlue());
         assertEquals(255, blendedPixel.getAlpha());
+    }
+
+    @Test
+    void gifEncoderDoesNotTreatOpaqueBlackAsTransparent() throws Exception {
+        BufferedImage frame = new BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB);
+        frame.setRGB(0, 0, new Color(0, 0, 0, 0).getRGB());
+        frame.setRGB(1, 0, new Color(0, 0, 0, 255).getRGB());
+
+        byte[] gif = SimpleGifEncoder.encode(List.of(frame), 120);
+        BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(gif));
+
+        Color transparentPixel = new Color(decoded.getRGB(0, 0), true);
+        assertEquals(0, transparentPixel.getAlpha());
+
+        Color blackPixel = new Color(decoded.getRGB(1, 0), true);
+        assertEquals(255, blackPixel.getAlpha());
+        assertTrue(blackPixel.getRed() <= 64);
+        assertTrue(blackPixel.getGreen() <= 64);
+        assertTrue(blackPixel.getBlue() <= 64);
     }
 
     private static void applyAddPinBlending(

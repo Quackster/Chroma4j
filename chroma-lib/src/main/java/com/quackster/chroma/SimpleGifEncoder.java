@@ -131,22 +131,26 @@ final class SimpleGifEncoder {
     }
 
     private static final class Palette {
+        private static final int TRANSPARENT_KEY = -1;
+        private static final int TRANSPARENT_COLOR = 0xFF00FF;
+
         private final int[] colors = new int[256];
         private final Map<Integer, Integer> exact = new LinkedHashMap<>();
         private boolean exactOnly = true;
 
         private static Palette fromFrames(byte[][] frames) {
             Palette palette = new Palette();
-            palette.colors[0] = 0;
-            palette.exact.put(0, 0);
+            palette.colors[0] = TRANSPARENT_COLOR;
+            palette.exact.put(TRANSPARENT_KEY, 0);
             int next = 1;
             for (byte[] frame : frames) {
                 for (int i = 0; i < frame.length; i += 4) {
                     int alpha = frame[i + 3] & 255;
-                    int color = alpha == 0 ? 0 : ((frame[i] & 255) << 16) | ((frame[i + 1] & 255) << 8) | (frame[i + 2] & 255);
-                    if (!palette.exact.containsKey(color)) {
+                    int color = ((frame[i] & 255) << 16) | ((frame[i + 1] & 255) << 8) | (frame[i + 2] & 255);
+                    int key = alpha == 0 ? TRANSPARENT_KEY : color;
+                    if (!palette.exact.containsKey(key)) {
                         if (next < 256) {
-                            palette.exact.put(color, next);
+                            palette.exact.put(key, next);
                             palette.colors[next++] = color;
                         } else {
                             palette.exactOnly = false;
@@ -161,7 +165,7 @@ final class SimpleGifEncoder {
         private static Palette quantizedPalette() {
             Palette palette = new Palette();
             palette.exactOnly = false;
-            palette.colors[0] = 0;
+            palette.colors[0] = TRANSPARENT_COLOR;
             for (int i = 1; i < 256; i++) {
                 int value = i - 1;
                 int r = ((value >>> 5) & 7) * 255 / 7;

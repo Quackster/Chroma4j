@@ -40,6 +40,11 @@ public final class ChromaWasm {
             RenderResult result = WasmRenderer.render(furniPackage, options);
             return "{\"ok\":true,\"width\":" + result.width
                     + ",\"height\":" + result.height
+                    + ",\"cropX\":" + result.cropX
+                    + ",\"cropY\":" + result.cropY
+                    + ",\"backgroundWidth\":" + result.backgroundWidth
+                    + ",\"backgroundHeight\":" + result.backgroundHeight
+                    + ",\"backgroundDeferred\":" + result.backgroundDeferred
                     + ",\"mime\":\"" + result.mime
                     + "\",\"isAnimated\":" + result.animated
                     + ",\"dataBase64\":\"" + Base64Codec.encode(result.data) + "\""
@@ -342,6 +347,7 @@ public final class ChromaWasm {
         private int backgroundWidth;
         private int backgroundHeight;
         private byte[] backgroundRgba;
+        private boolean deferBackground;
 
         private static RenderOptions parse(String json) {
             RenderOptions options = new RenderOptions();
@@ -381,14 +387,35 @@ public final class ChromaWasm {
     private static final class RenderResult {
         private final int width;
         private final int height;
+        private final int cropX;
+        private final int cropY;
+        private final int backgroundWidth;
+        private final int backgroundHeight;
+        private final boolean backgroundDeferred;
         private final byte[] data;
         private final String mime;
         private final boolean animated;
         private final boolean png;
 
-        private RenderResult(int width, int height, byte[] data, String mime, boolean animated, boolean png) {
+        private RenderResult(
+                int width,
+                int height,
+                int cropX,
+                int cropY,
+                int backgroundWidth,
+                int backgroundHeight,
+                boolean backgroundDeferred,
+                byte[] data,
+                String mime,
+                boolean animated,
+                boolean png) {
             this.width = width;
             this.height = height;
+            this.cropX = cropX;
+            this.cropY = cropY;
+            this.backgroundWidth = backgroundWidth;
+            this.backgroundHeight = backgroundHeight;
+            this.backgroundDeferred = backgroundDeferred;
             this.data = data;
             this.mime = mime;
             this.animated = animated;
@@ -414,6 +441,7 @@ public final class ChromaWasm {
 
             int renderWidth = options.background && options.backgroundRgba != null && options.backgroundWidth > 0 ? options.backgroundWidth : CANVAS_WIDTH;
             int renderHeight = options.background && options.backgroundRgba != null && options.backgroundHeight > 0 ? options.backgroundHeight : CANVAS_HEIGHT;
+            options.deferBackground = options.gif && options.background && options.backgroundRgba != null && options.backgroundWidth > 0 && options.backgroundHeight > 0;
             int frameCount = options.gif ? animationFrameCount(visualizationXml, size, options.state) : 1;
             RenderedFrame[] frames = new RenderedFrame[frameCount];
             Bounds crop = null;
@@ -433,10 +461,32 @@ public final class ChromaWasm {
                 for (int i = 0; i < frameCount; i++) {
                     rgbaFrames[i] = cropRgba(frames[i].canvas, renderWidth, crop);
                 }
-                return new RenderResult(crop.width, crop.height, GifEncoder.encode(crop.width, crop.height, rgbaFrames, 120), "image/gif", frameCount > 1, false);
+                return new RenderResult(
+                        crop.width,
+                        crop.height,
+                        crop.x,
+                        crop.y,
+                        renderWidth,
+                        renderHeight,
+                        options.deferBackground,
+                        GifEncoder.encode(crop.width, crop.height, rgbaFrames, 120),
+                        "image/gif",
+                        frameCount > 1,
+                        false);
             }
             byte[] rgba = cropRgba(frames[0].canvas, renderWidth, crop);
-            return new RenderResult(crop.width, crop.height, PngEncoder.encode(crop.width, crop.height, rgba), "image/png", false, true);
+            return new RenderResult(
+                    crop.width,
+                    crop.height,
+                    crop.x,
+                    crop.y,
+                    renderWidth,
+                    renderHeight,
+                    false,
+                    PngEncoder.encode(crop.width, crop.height, rgba),
+                    "image/png",
+                    false,
+                    true);
         }
 
         private static int[] renderCanvas(
@@ -1062,7 +1112,7 @@ public final class ChromaWasm {
         }
 
         private static void fillCanvas(int[] canvas, int width, int height, RenderOptions options) {
-            if (options.background && options.backgroundRgba != null && options.backgroundRgba.length >= width * height * 4) {
+            if (options.background && !options.deferBackground && options.backgroundRgba != null && options.backgroundRgba.length >= width * height * 4) {
                 for (int i = 0; i < width * height; i++) {
                     int source = i * 4;
                     canvas[i] = argb(
@@ -1156,6 +1206,9 @@ public final class ChromaWasm {
         }
 
         private static int[] trimColors(RenderOptions options) {
+            if (options.deferBackground) {
+                return new int[] { parseCanvasColor("transparent") };
+            }
             if (options.background) {
                 return new int[] {
                         argb(255, 142, 142, 94),
@@ -1194,7 +1247,7 @@ public final class ChromaWasm {
         }
 
         private static boolean isTransparentCanvas(RenderOptions options) {
-            return !options.background && alpha(parseCanvasColor(options.canvas)) == 0;
+            return options.deferBackground || (!options.background && alpha(parseCanvasColor(options.canvas)) == 0);
         }
 
         private static int parseCanvasColor(String value) {
@@ -1724,23 +1777,27 @@ public final class ChromaWasm {
         }
 
         private static final class Palette {
+            private static final int TRANSPARENT_KEY = -1;
+            private static final int TRANSPARENT_COLOR = 0xFF00FF;
+
             private final int[] colors = new int[256];
             private final Map<Integer, Integer> exact = new LinkedHashMap<>();
             private boolean exactOnly = true;
 
             private static Palette fromFrames(byte[][] frames) {
                 Palette palette = new Palette();
-                palette.colors[0] = 0;
-                palette.exact.put(0, 0);
+                palette.colors[0] = TRANSPARENT_COLOR;
+                palette.exact.put(TRANSPARENT_KEY, 0);
                 int next = 1;
                 for (int f = 0; f < frames.length; f++) {
                     byte[] frame = frames[f];
                     for (int i = 0; i < frame.length; i += 4) {
                         int a = frame[i + 3] & 255;
-                        int color = a == 0 ? 0 : ((frame[i] & 255) << 16) | ((frame[i + 1] & 255) << 8) | (frame[i + 2] & 255);
-                        if (!palette.exact.containsKey(color)) {
+                        int color = ((frame[i] & 255) << 16) | ((frame[i + 1] & 255) << 8) | (frame[i + 2] & 255);
+                        int key = a == 0 ? TRANSPARENT_KEY : color;
+                        if (!palette.exact.containsKey(key)) {
                             if (next < 256) {
-                                palette.exact.put(color, next);
+                                palette.exact.put(key, next);
                                 palette.colors[next++] = color;
                             } else {
                                 palette.exactOnly = false;
@@ -1755,7 +1812,7 @@ public final class ChromaWasm {
             private static Palette quantizedPalette() {
                 Palette palette = new Palette();
                 palette.exactOnly = false;
-                palette.colors[0] = 0;
+                palette.colors[0] = TRANSPARENT_COLOR;
                 for (int i = 1; i < 256; i++) {
                     int value = i - 1;
                     int r = ((value >>> 5) & 7) * 255 / 7;
