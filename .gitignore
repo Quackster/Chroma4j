@@ -6,3 +6,4 @@
 /furni_export
 /node_modules
 /web/dist
+/web/dist/wasm-gc
