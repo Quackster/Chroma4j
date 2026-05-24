@@ -1,4 +1,4 @@
-import { loadChroma4j } from "./chroma4j.js?v=wasm-bg-last-20260524";
+import { loadChroma4j } from "./chroma4j.js?v=wasm-gif-local-palette-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),
@@ -12,6 +12,7 @@ const controls = {
   icon: document.getElementById("icon"),
   bg: document.getElementById("bg"),
   gif: document.getElementById("gif"),
+  loop: document.getElementById("loop"),
   render: document.getElementById("render"),
   download: document.getElementById("download"),
   status: document.getElementById("status"),
@@ -39,7 +40,8 @@ controls.render.addEventListener("click", async () => {
       crop: controls.crop.checked,
       icon: controls.icon.checked,
       bg: controls.bg.checked,
-      gif: controls.gif.checked
+      gif: controls.gif.checked,
+      loop: controls.loop.checked
     }, controls.preview);
     await updatePreview(lastResult);
     controls.download.disabled = false;

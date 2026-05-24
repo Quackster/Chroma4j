@@ -1,5 +1,5 @@
 let teavmInstancePromise;
-const BUILD_VERSION = "wasm-gif-20260524";
+const BUILD_VERSION = "wasm-gif-local-palette-20260524";
 
 export async function loadChroma4j(options = {}) {
   await ensureTeaVm(options.basePath || ".");
@@ -105,7 +105,8 @@ async function normalizeOptions(options) {
     shadow: optionBoolean(options.shadow),
     icon: optionBoolean(options.icon),
     background: backgroundBoolean(options.bg) || optionBoolean(options.background),
-    gif: optionBoolean(options.gif)
+    gif: optionBoolean(options.gif),
+    loop: options.loop === undefined ? true : optionBoolean(options.loop)
   };
   if (normalized.background) {
     Object.assign(normalized, await loadBackground(options.basePath || "."));

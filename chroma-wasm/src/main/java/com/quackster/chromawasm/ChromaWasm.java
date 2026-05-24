@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -344,6 +345,7 @@ public final class ChromaWasm {
         private boolean icon;
         private boolean background;
         private boolean gif;
+        private boolean loop = true;
         private int backgroundWidth;
         private int backgroundHeight;
         private byte[] backgroundRgba;
@@ -370,6 +372,7 @@ public final class ChromaWasm {
             options.icon = Json.readBoolean(json, "icon", false);
             options.background = Json.readBoolean(json, "background", false) || Json.readBoolean(json, "bg", false);
             options.gif = Json.readBoolean(json, "gif", false);
+            options.loop = Json.hasKey(json, "loop") ? Json.readBoolean(json, "loop", true) : true;
             options.backgroundWidth = Json.readInt(json, "backgroundWidth", 0);
             options.backgroundHeight = Json.readInt(json, "backgroundHeight", 0);
             String backgroundRgba = Json.readString(json, "backgroundRgbaBase64", "");
@@ -469,7 +472,7 @@ public final class ChromaWasm {
                         renderWidth,
                         renderHeight,
                         options.deferBackground,
-                        GifEncoder.encode(crop.width, crop.height, rgbaFrames, 120),
+                        GifEncoder.encode(crop.width, crop.height, rgbaFrames, 120, options.loop),
                         "image/gif",
                         frameCount > 1,
                         false);
@@ -967,7 +970,7 @@ public final class ChromaWasm {
                 source = applyOpacity(source, 0.2);
             }
             if ("ADD".equals(asset.ink) || "33".equals(asset.ink)) {
-                drawAdd(canvas, canvasWidth, canvasHeight, source, width, height, x, y, isTransparentCanvas(options));
+                drawAdd(canvas, canvasWidth, canvasHeight, source, width, height, x, y, options);
             } else {
                 drawNormal(canvas, canvasWidth, canvasHeight, source, width, height, x, y);
             }
@@ -996,11 +999,12 @@ public final class ChromaWasm {
             }
         }
 
-        private static void drawAdd(int[] canvas, int canvasWidth, int canvasHeight, byte[] source, int sourceWidth, int sourceHeight, int x, int y, boolean preserveDestinationAlpha) {
+        private static void drawAdd(int[] canvas, int canvasWidth, int canvasHeight, byte[] source, int sourceWidth, int sourceHeight, int x, int y, RenderOptions options) {
             int startX = Math.max(0, x);
             int startY = Math.max(0, y);
             int endX = Math.min(canvasWidth, x + sourceWidth);
             int endY = Math.min(canvasHeight, y + sourceHeight);
+            boolean preserveDestinationAlpha = isTransparentCanvas(options);
             for (int cy = startY; cy < endY; cy++) {
                 for (int cx = startX; cx < endX; cx++) {
                     int sourceIndex = ((cy - y) * sourceWidth + (cx - x)) * 4;
@@ -1008,13 +1012,27 @@ public final class ChromaWasm {
                     if (fgAlpha == 0) {
                         continue;
                     }
-                    int bgPixel = canvas[cy * canvasWidth + cx];
+                    int canvasIndex = cy * canvasWidth + cx;
+                    int bgPixel = canvas[canvasIndex];
                     int bgAlpha = alpha(bgPixel);
                     int outAlpha;
                     int r;
                     int g;
                     int b;
-                    if (preserveDestinationAlpha) {
+                    if (options.deferBackground && bgAlpha == 0) {
+                        int backdropPixel = backgroundPixel(options, cx, cy);
+                        int backdropAlpha = alpha(backdropPixel);
+                        if (backdropAlpha == 0) {
+                            continue;
+                        }
+                        outAlpha = blendNormalAlpha(fgAlpha, backdropAlpha);
+                        r = blendAddChannel(source[sourceIndex] & 255, fgAlpha, red(backdropPixel), backdropAlpha, outAlpha);
+                        g = blendAddChannel(source[sourceIndex + 1] & 255, fgAlpha, green(backdropPixel), backdropAlpha, outAlpha);
+                        b = blendAddChannel(source[sourceIndex + 2] & 255, fgAlpha, blue(backdropPixel), backdropAlpha, outAlpha);
+                        if (outAlpha == backdropAlpha && r == red(backdropPixel) && g == green(backdropPixel) && b == blue(backdropPixel)) {
+                            continue;
+                        }
+                    } else if (preserveDestinationAlpha) {
                         outAlpha = bgAlpha;
                         if (outAlpha == 0) {
                             continue;
@@ -1028,9 +1046,25 @@ public final class ChromaWasm {
                         g = blendAddChannel(source[sourceIndex + 1] & 255, fgAlpha, green(bgPixel), bgAlpha, outAlpha);
                         b = blendAddChannel(source[sourceIndex + 2] & 255, fgAlpha, blue(bgPixel), bgAlpha, outAlpha);
                     }
-                    canvas[cy * canvasWidth + cx] = argb(outAlpha, r, g, b);
+                    canvas[canvasIndex] = argb(outAlpha, r, g, b);
                 }
             }
+        }
+
+        private static int backgroundPixel(RenderOptions options, int x, int y) {
+            if (options.backgroundRgba == null || options.backgroundWidth <= 0 || options.backgroundHeight <= 0
+                    || x < 0 || y < 0 || x >= options.backgroundWidth || y >= options.backgroundHeight) {
+                return parseCanvasColor(options.canvas);
+            }
+            int source = (y * options.backgroundWidth + x) * 4;
+            if (source + 3 >= options.backgroundRgba.length) {
+                return parseCanvasColor(options.canvas);
+            }
+            return argb(
+                    options.backgroundRgba[source + 3] & 255,
+                    options.backgroundRgba[source] & 255,
+                    options.backgroundRgba[source + 1] & 255,
+                    options.backgroundRgba[source + 2] & 255);
         }
 
         private static int blendNormalAlpha(int fgAlpha, int bgAlpha) {
@@ -1663,31 +1697,27 @@ public final class ChromaWasm {
     }
 
     private static final class GifEncoder {
-        private static byte[] encode(int width, int height, byte[][] frames, int delayMs) {
-            Palette palette = Palette.fromFrames(frames);
+        private static byte[] encode(int width, int height, byte[][] frames, int delayMs, boolean loop) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             writeAscii(out, "GIF89a");
             writeShort(out, width);
             writeShort(out, height);
-            out.write(0xf7);
             out.write(0);
             out.write(0);
-            for (int i = 0; i < 256; i++) {
-                int color = palette.colors[i];
-                out.write((color >>> 16) & 255);
-                out.write((color >>> 8) & 255);
-                out.write(color & 255);
+            out.write(0);
+            if (loop) {
+                out.write(0x21);
+                out.write(0xff);
+                out.write(11);
+                writeAscii(out, "NETSCAPE2.0");
+                out.write(3);
+                out.write(1);
+                writeShort(out, 0);
+                out.write(0);
             }
-            out.write(0x21);
-            out.write(0xff);
-            out.write(11);
-            writeAscii(out, "NETSCAPE2.0");
-            out.write(3);
-            out.write(1);
-            writeShort(out, 0);
-            out.write(0);
 
             for (int i = 0; i < frames.length; i++) {
+                Palette palette = Palette.fromFrame(frames[i]);
                 byte[] indexed = palette.index(frames[i]);
                 out.write(0x21);
                 out.write(0xf9);
@@ -1701,7 +1731,13 @@ public final class ChromaWasm {
                 writeShort(out, 0);
                 writeShort(out, width);
                 writeShort(out, height);
-                out.write(0);
+                out.write(0x87);
+                for (int c = 0; c < 256; c++) {
+                    int color = palette.colors[c];
+                    out.write((color >>> 16) & 255);
+                    out.write((color >>> 8) & 255);
+                    out.write(color & 255);
+                }
                 out.write(8);
                 writeSubBlocks(out, lzwEncode(indexed));
             }
@@ -1779,48 +1815,85 @@ public final class ChromaWasm {
         private static final class Palette {
             private static final int TRANSPARENT_KEY = -1;
             private static final int TRANSPARENT_COLOR = 0xFF00FF;
+            private static final int MAX_VISIBLE_COLORS = 255;
 
             private final int[] colors = new int[256];
             private final Map<Integer, Integer> exact = new LinkedHashMap<>();
+            private final Map<Integer, Integer> nearest = new LinkedHashMap<>();
             private boolean exactOnly = true;
 
-            private static Palette fromFrames(byte[][] frames) {
+            private static Palette fromFrame(byte[] frame) {
+                Map<Integer, Integer> counts = colorCounts(frame);
                 Palette palette = new Palette();
                 palette.colors[0] = TRANSPARENT_COLOR;
                 palette.exact.put(TRANSPARENT_KEY, 0);
-                int next = 1;
-                for (int f = 0; f < frames.length; f++) {
-                    byte[] frame = frames[f];
-                    for (int i = 0; i < frame.length; i += 4) {
-                        int a = frame[i + 3] & 255;
-                        int color = ((frame[i] & 255) << 16) | ((frame[i + 1] & 255) << 8) | (frame[i + 2] & 255);
-                        int key = a == 0 ? TRANSPARENT_KEY : color;
-                        if (!palette.exact.containsKey(key)) {
-                            if (next < 256) {
-                                palette.exact.put(key, next);
-                                palette.colors[next++] = color;
-                            } else {
-                                palette.exactOnly = false;
-                                return quantizedPalette();
-                            }
-                        }
+
+                if (counts.size() <= MAX_VISIBLE_COLORS) {
+                    int next = 1;
+                    for (Map.Entry<Integer, Integer> entry : counts.entrySet()) {
+                        int color = entry.getKey();
+                        palette.exact.put(color, next);
+                        palette.colors[next++] = color;
                     }
+                    return palette;
+                }
+
+                palette.exactOnly = false;
+                List<ColorCount> colorCounts = new ArrayList<>();
+                for (Map.Entry<Integer, Integer> entry : counts.entrySet()) {
+                    colorCounts.add(new ColorCount(entry.getKey(), entry.getValue()));
+                }
+                List<ColorBox> boxes = medianCut(colorCounts);
+                for (int i = 0; i < boxes.size() && i < MAX_VISIBLE_COLORS; i++) {
+                    palette.colors[i + 1] = boxes.get(i).averageColor();
                 }
                 return palette;
             }
 
-            private static Palette quantizedPalette() {
-                Palette palette = new Palette();
-                palette.exactOnly = false;
-                palette.colors[0] = TRANSPARENT_COLOR;
-                for (int i = 1; i < 256; i++) {
-                    int value = i - 1;
-                    int r = ((value >>> 5) & 7) * 255 / 7;
-                    int g = ((value >>> 2) & 7) * 255 / 7;
-                    int b = (value & 3) * 255 / 3;
-                    palette.colors[i] = (r << 16) | (g << 8) | b;
+            private static Map<Integer, Integer> colorCounts(byte[] frame) {
+                Map<Integer, Integer> counts = new LinkedHashMap<>();
+                for (int i = 0; i < frame.length; i += 4) {
+                    int a = frame[i + 3] & 255;
+                    if (a == 0) {
+                        continue;
+                    }
+                    int color = ((frame[i] & 255) << 16) | ((frame[i + 1] & 255) << 8) | (frame[i + 2] & 255);
+                    Integer count = counts.get(color);
+                    counts.put(color, count == null ? 1 : count + 1);
                 }
-                return palette;
+                return counts;
+            }
+
+            private static List<ColorBox> medianCut(List<ColorCount> colors) {
+                List<ColorBox> boxes = new ArrayList<>();
+                boxes.add(new ColorBox(colors));
+                while (boxes.size() < MAX_VISIBLE_COLORS) {
+                    int splitIndex = -1;
+                    long splitScore = -1;
+                    for (int i = 0; i < boxes.size(); i++) {
+                        ColorBox box = boxes.get(i);
+                        if (box.colors.size() <= 1) {
+                            continue;
+                        }
+                        long score = (long) box.range() * box.totalCount;
+                        if (score > splitScore) {
+                            splitScore = score;
+                            splitIndex = i;
+                        }
+                    }
+                    if (splitIndex < 0) {
+                        break;
+                    }
+                    ColorBox box = boxes.remove(splitIndex);
+                    ColorBox[] split = box.split();
+                    if (split == null) {
+                        boxes.add(box);
+                        break;
+                    }
+                    boxes.add(split[0]);
+                    boxes.add(split[1]);
+                }
+                return boxes;
             }
 
             private byte[] index(byte[] rgba) {
@@ -1832,18 +1905,175 @@ public final class ChromaWasm {
                     } else {
                         int color = ((rgba[i] & 255) << 16) | ((rgba[i + 1] & 255) << 8) | (rgba[i + 2] & 255);
                         Integer exactIndex = exactOnly ? exact.get(color) : null;
-                        result[p] = (byte) (exactIndex != null ? exactIndex : quantizedIndex(color));
+                        result[p] = (byte) (exactIndex != null ? exactIndex : nearestIndex(color));
                     }
                 }
                 return result;
             }
 
-            private int quantizedIndex(int color) {
+            private int nearestIndex(int color) {
+                Integer cached = nearest.get(color);
+                if (cached != null) {
+                    return cached;
+                }
                 int r = (color >>> 16) & 255;
                 int g = (color >>> 8) & 255;
                 int b = color & 255;
-                int index = 1 + ((r * 7 / 255) << 5) + ((g * 7 / 255) << 2) + (b * 3 / 255);
-                return Math.min(255, index);
+                int bestIndex = 1;
+                int bestDistance = Integer.MAX_VALUE;
+                for (int i = 1; i < 256; i++) {
+                    int paletteColor = colors[i];
+                    int dr = r - ((paletteColor >>> 16) & 255);
+                    int dg = g - ((paletteColor >>> 8) & 255);
+                    int db = b - (paletteColor & 255);
+                    int distance = dr * dr + dg * dg + db * db;
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestIndex = i;
+                        if (distance == 0) {
+                            break;
+                        }
+                    }
+                }
+                nearest.put(color, bestIndex);
+                return bestIndex;
+            }
+        }
+
+        private static final class ColorCount {
+            private final int color;
+            private final int count;
+
+            private ColorCount(int color, int count) {
+                this.color = color;
+                this.count = count;
+            }
+        }
+
+        private static final class ColorBox {
+            private final List<ColorCount> colors;
+            private int minR;
+            private int maxR;
+            private int minG;
+            private int maxG;
+            private int minB;
+            private int maxB;
+            private int totalCount;
+
+            private ColorBox(List<ColorCount> colors) {
+                this.colors = colors;
+                recalculate();
+            }
+
+            private void recalculate() {
+                minR = minG = minB = 255;
+                maxR = maxG = maxB = 0;
+                totalCount = 0;
+                for (int i = 0; i < colors.size(); i++) {
+                    ColorCount colorCount = colors.get(i);
+                    int color = colorCount.color;
+                    int r = (color >>> 16) & 255;
+                    int g = (color >>> 8) & 255;
+                    int b = color & 255;
+                    if (r < minR) minR = r;
+                    if (r > maxR) maxR = r;
+                    if (g < minG) minG = g;
+                    if (g > maxG) maxG = g;
+                    if (b < minB) minB = b;
+                    if (b > maxB) maxB = b;
+                    totalCount += colorCount.count;
+                }
+            }
+
+            private int range() {
+                int r = maxR - minR;
+                int g = maxG - minG;
+                int b = maxB - minB;
+                return Math.max(r, Math.max(g, b));
+            }
+
+            private ColorBox[] split() {
+                if (colors.size() <= 1) {
+                    return null;
+                }
+                int channel = splitChannel();
+                sortByChannel(colors, channel);
+                int midpoint = Math.max(1, totalCount / 2);
+                int running = 0;
+                int splitAt = 1;
+                for (int i = 0; i < colors.size(); i++) {
+                    running += colors.get(i).count;
+                    if (running >= midpoint) {
+                        splitAt = i + 1;
+                        break;
+                    }
+                }
+                if (splitAt <= 0 || splitAt >= colors.size()) {
+                    splitAt = colors.size() / 2;
+                }
+                if (splitAt <= 0 || splitAt >= colors.size()) {
+                    return null;
+                }
+                List<ColorCount> left = new ArrayList<>();
+                List<ColorCount> right = new ArrayList<>();
+                for (int i = 0; i < splitAt; i++) {
+                    left.add(colors.get(i));
+                }
+                for (int i = splitAt; i < colors.size(); i++) {
+                    right.add(colors.get(i));
+                }
+                return new ColorBox[] { new ColorBox(left), new ColorBox(right) };
+            }
+
+            private int splitChannel() {
+                int r = maxR - minR;
+                int g = maxG - minG;
+                int b = maxB - minB;
+                if (r >= g && r >= b) {
+                    return 0;
+                }
+                return g >= b ? 1 : 2;
+            }
+
+            private int averageColor() {
+                long r = 0;
+                long g = 0;
+                long b = 0;
+                long count = 0;
+                for (int i = 0; i < colors.size(); i++) {
+                    ColorCount colorCount = colors.get(i);
+                    int color = colorCount.color;
+                    r += (long) ((color >>> 16) & 255) * colorCount.count;
+                    g += (long) ((color >>> 8) & 255) * colorCount.count;
+                    b += (long) (color & 255) * colorCount.count;
+                    count += colorCount.count;
+                }
+                if (count == 0) {
+                    return 0;
+                }
+                int rr = (int) Math.round(r / (double) count);
+                int gg = (int) Math.round(g / (double) count);
+                int bb = (int) Math.round(b / (double) count);
+                return (rr << 16) | (gg << 8) | bb;
+            }
+
+            private static void sortByChannel(List<ColorCount> colors, int channel) {
+                colors.sort(new Comparator<ColorCount>() {
+                    @Override
+                    public int compare(ColorCount left, ColorCount right) {
+                        return channel(left.color, channel) - channel(right.color, channel);
+                    }
+                });
+            }
+
+            private static int channel(int color, int channel) {
+                if (channel == 0) {
+                    return (color >>> 16) & 255;
+                }
+                if (channel == 1) {
+                    return (color >>> 8) & 255;
+                }
+                return color & 255;
             }
         }
     }

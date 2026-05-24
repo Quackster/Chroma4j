@@ -104,7 +104,8 @@ const result = await chroma.renderFromUrl("https://example.com/hof_furni/rare_dr
   color: 0,
   crop: true,
   canvas: "transparent",
-  gif: true
+  gif: true,
+  loop: true
 });
 
 console.log(result.mime);      // "image/gif"
@@ -149,6 +150,7 @@ Supported first-release options mirror the server endpoint where applicable:
 - `canvas`
 - `icon`
 - `gif`: `false` by default for PNG output; `true` returns GIF bytes when the selected state has animation frames.
+- `loop`: `true` by default for GIF output; set `false` to emit a non-looping GIF.
 
 ## Build The Spring Webapp
 
