@@ -519,6 +519,13 @@ public class ChromaFurniture {
                     resolvedAnimationFrames.remove(layer);
                 }
             }
+            if (asset != null && asset.getImagePath() == null) {
+                asset = null;
+            }
+            if (asset == null) {
+                asset = fallbackAssetForLayer(candidates, layer);
+                resolvedAnimationFrames.remove(layer);
+            }
             if (asset != null && asset.getImagePath() != null) {
                 renderFrames.add(asset);
             }
@@ -532,6 +539,22 @@ public class ChromaFurniture {
         
         renderFrames.sort(Comparator.comparingInt(ChromaAsset::getZ));
         return renderFrames;
+    }
+
+    private ChromaAsset fallbackAssetForLayer(List<ChromaAsset> candidates, int layer) {
+        ChromaAsset fallback = null;
+        for (ChromaAsset candidate : candidates) {
+            if (candidate.getLayer() != layer || candidate.getDirection() != renderDirection) {
+                continue;
+            }
+            if (candidate.getImagePath() == null) {
+                continue;
+            }
+            if (fallback == null || candidate.getFrame() < fallback.getFrame()) {
+                fallback = candidate;
+            }
+        }
+        return fallback;
     }
 
     private String frameAssetName(int layer, int frame) {

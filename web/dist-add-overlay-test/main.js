@@ -1,4 +1,4 @@
-import { loadChroma4j } from "../dist/chroma4j.js?v=wasm-glow-mode-20260524";
+import { loadChroma4j } from "../dist/chroma4j.js?v=wasm-add-disable-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),
@@ -44,12 +44,19 @@ async function render() {
       stage.append(layeredImage(baseUrl, addUrl));
     }
     applyCustomBackground();
-    controls.status.textContent = `${result.width} x ${result.height} ${result.format.toUpperCase()} rendered. Glow mode: ${result.addMode === "overlay" ? "overlay" : "baked"}.`;
+    controls.status.textContent = `${result.width} x ${result.height} ${result.format.toUpperCase()} rendered. Glow mode: ${glowModeName(result.addMode)}.`;
   } catch (error) {
     controls.status.textContent = error.message;
   } finally {
     controls.render.disabled = false;
   }
+}
+
+function glowModeName(addMode) {
+  if (addMode === "none") {
+    return "no glow";
+  }
+  return addMode === "overlay" ? "overlay" : "baked";
 }
 
 function layeredImage(baseUrl, addUrl) {

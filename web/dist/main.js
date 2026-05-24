@@ -1,4 +1,4 @@
-import { loadChroma4j } from "./chroma4j.js?v=wasm-default-controls-20260524";
+import { loadChroma4j } from "./chroma4j.js?v=wasm-add-disable-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),

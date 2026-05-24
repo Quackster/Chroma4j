@@ -182,11 +182,45 @@ public final class ChromaWasm {
                 if ("assets".equals(suffix) || "visualization".equals(suffix) || "logic".equals(suffix) || "index".equals(suffix)) {
                     int end = symbol.length() - suffix.length() - 1;
                     if (end > 0) {
-                        return symbol.substring(0, end);
+                        return collapseRepeatedSprite(symbol.substring(0, end));
                     }
                 }
             }
             return "furni";
+        }
+
+        private static String collapseRepeatedSprite(String value) {
+            List<String> parts = splitSprite(value);
+            if (parts.size() % 2 != 0 || parts.isEmpty()) {
+                return value;
+            }
+            int midpoint = parts.size() / 2;
+            for (int i = 0; i < midpoint; i++) {
+                if (!parts.get(i).equals(parts.get(i + midpoint))) {
+                    return value;
+                }
+            }
+            StringBuilder out = new StringBuilder();
+            for (int i = 0; i < midpoint; i++) {
+                if (i > 0) {
+                    out.append('_');
+                }
+                out.append(parts.get(i));
+            }
+            return out.toString();
+        }
+
+        private static List<String> splitSprite(String value) {
+            List<String> result = new ArrayList<>();
+            int start = 0;
+            for (int i = 0; i < value.length(); i++) {
+                if (value.charAt(i) == '_') {
+                    result.add(value.substring(start, i));
+                    start = i + 1;
+                }
+            }
+            result.add(value.substring(start));
+            return result;
         }
 
         private static String imageName(String sprite, String symbol) {
@@ -350,6 +384,7 @@ public final class ChromaWasm {
         private boolean apng;
         private String format = "";
         private boolean separateAdd;
+        private boolean disableAdd;
         private boolean loop = true;
         private int backgroundWidth;
         private int backgroundHeight;
@@ -380,6 +415,7 @@ public final class ChromaWasm {
             options.apng = Json.readBoolean(json, "apng", false) || "apng".equals(options.format);
             options.gif = !options.apng && (Json.readBoolean(json, "gif", false) || "gif".equals(options.format));
             options.separateAdd = Json.readBoolean(json, "separateAdd", false);
+            options.disableAdd = Json.readBoolean(json, "disableAdd", false);
             options.loop = Json.hasKey(json, "loop") ? Json.readBoolean(json, "loop", true) : true;
             options.backgroundWidth = Json.readInt(json, "backgroundWidth", 0);
             options.backgroundHeight = Json.readInt(json, "backgroundHeight", 0);
@@ -713,6 +749,10 @@ public final class ChromaWasm {
                         animationFrame = null;
                     }
                 }
+                if (asset == null) {
+                    asset = fallbackAssetForLayer(candidates, layer, direction);
+                    animationFrame = null;
+                }
                 if (asset != null) {
                     if (animationFrame != null) {
                         asset.x -= animationFrame.x;
@@ -734,6 +774,20 @@ public final class ChromaWasm {
             }
             sortAssets(filtered);
             return filtered;
+        }
+
+        private static RenderAsset fallbackAssetForLayer(List<RenderAsset> candidates, int layer, int direction) {
+            RenderAsset fallback = null;
+            for (int i = 0; i < candidates.size(); i++) {
+                RenderAsset candidate = candidates.get(i);
+                if (candidate.layer != layer || candidate.direction != direction) {
+                    continue;
+                }
+                if (fallback == null || candidate.frame < fallback.frame) {
+                    fallback = candidate;
+                }
+            }
+            return fallback;
         }
 
         private static Map<Integer, LayerInfo> readLayers(XmlNode doc, String size, int direction) {
@@ -1013,6 +1067,9 @@ public final class ChromaWasm {
                 source = applyOpacity(source, 0.2);
             }
             if ("ADD".equals(asset.ink) || "33".equals(asset.ink)) {
+                if (options.disableAdd) {
+                    return;
+                }
                 if (addCanvas == null) {
                     drawAdd(canvas, canvasWidth, canvasHeight, source, width, height, x, y, options);
                 } else {

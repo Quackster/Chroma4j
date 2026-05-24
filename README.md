@@ -14,7 +14,7 @@ The browser build fetches SWFs directly from the browser, so HTTP SWF URLs must 
 
 ## Preview
 
-![](https://i.imgur.com/w0nzIvr.gif)
+![](https://cdn.discordapp.com/attachments/531015659027562505/1508006401266417774/chrome_l2fkwjOmeK.gif?ex=6a13f7e7&is=6a12a667&hm=ca45eb9bbc1dbf15e7ba1112f65e19003513985bdc66341cc3b27d70096737ec&)
 
 ## Build The WASM Release
 
@@ -175,7 +175,7 @@ Supported first-release options mirror the server endpoint where applicable:
 - `bg` / `background`
 - `shadow`
 - `canvas`: a hex colour, `transparent`, or an HTTP/HTTPS image URL in the browser build. URL backgrounds must allow CORS pixel reads.
-- `addMode`: `"overlay"` by default. `"overlay"` uses Overlay glow, where ADD ink is returned as a separate layer and composited over the visible page background. `"baked"` uses Baked glow, where the renderer blends ADD into the output image. `separateAdd` is still accepted as a low-level alias.
+- `addMode`: `"overlay"` by default. `"overlay"` uses Overlay glow, where ADD ink is returned as a separate layer and composited over the visible page background. `"baked"` uses Baked glow, where the renderer blends ADD into the output image. `"none"` disables ADD/glow layers completely and always uses the baked renderer path. `separateAdd` is still accepted as a low-level alias.
 - `icon`
 - `gif`: `false` by default for PNG output; `true` returns GIF bytes when the selected state has animation frames.
 - `apng`: `false` by default for PNG output; `true` returns APNG bytes. APNG is served as PNG-compatible `image/png`.

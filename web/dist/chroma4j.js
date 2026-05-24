@@ -1,5 +1,5 @@
 let teavmInstancePromise;
-const BUILD_VERSION = "wasm-glow-mode-20260524";
+const BUILD_VERSION = "wasm-add-disable-20260524";
 
 export async function loadChroma4j(options = {}) {
   await ensureTeaVm(options.basePath || ".");
@@ -146,6 +146,7 @@ async function normalizeOptions(options) {
     apng,
     format: apng ? "apng" : (gif ? "gif" : "png"),
     addMode,
+    disableAdd: addMode === "none",
     separateAdd: addMode === "overlay",
     loop: options.loop === undefined ? true : optionBoolean(options.loop)
   };
@@ -228,6 +229,9 @@ function normalizeAddMode(options) {
   const mode = String(rawMode || "").toLowerCase();
   if (mode === "baked" || mode === "built-in" || mode === "builtin" || mode === "inbuilt") {
     return "baked";
+  }
+  if (mode === "none" || mode === "off" || mode === "disabled" || mode === "disable" || mode === "no-glow" || mode === "noglow") {
+    return "none";
   }
   if (mode === "overlay" || mode === "layered" || mode === "superimposed") {
     return "overlay";
