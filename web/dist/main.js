@@ -1,4 +1,4 @@
-import { loadChroma4j } from "./chroma4j.js?v=wasm-gif-20260524";
+import { loadChroma4j } from "./chroma4j.js?v=wasm-bg-last-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),
@@ -10,6 +10,7 @@ const controls = {
   shadow: document.getElementById("shadow"),
   crop: document.getElementById("crop"),
   icon: document.getElementById("icon"),
+  bg: document.getElementById("bg"),
   gif: document.getElementById("gif"),
   render: document.getElementById("render"),
   download: document.getElementById("download"),
@@ -37,6 +38,7 @@ controls.render.addEventListener("click", async () => {
       shadow: controls.shadow.checked,
       crop: controls.crop.checked,
       icon: controls.icon.checked,
+      bg: controls.bg.checked,
       gif: controls.gif.checked
     }, controls.preview);
     await updatePreview(lastResult);
@@ -58,6 +60,7 @@ function resetPreview() {
   controls.preview.hidden = false;
   controls.previewGif.hidden = true;
   controls.previewGif.removeAttribute("src");
+  clearGifBackground();
 }
 
 async function updatePreview(result) {
@@ -65,12 +68,32 @@ async function updatePreview(result) {
     controls.preview.hidden = false;
     controls.previewGif.hidden = true;
     controls.previewGif.removeAttribute("src");
+    clearGifBackground();
     return;
   }
 
   controls.preview.hidden = true;
   controls.previewGif.hidden = false;
+  applyGifBackground(result);
   controls.previewGif.src = await result.dataUrl();
+}
+
+function applyGifBackground(result) {
+  clearGifBackground();
+  if (!result.backgroundDeferred || !result.backgroundUrl) {
+    return;
+  }
+  controls.previewGif.classList.add("with-background");
+  controls.previewGif.style.backgroundImage = `url("${result.backgroundUrl}")`;
+  controls.previewGif.style.backgroundPosition = `-${result.cropX}px -${result.cropY}px`;
+  controls.previewGif.style.backgroundSize = `${result.backgroundWidth}px ${result.backgroundHeight}px`;
+}
+
+function clearGifBackground() {
+  controls.previewGif.classList.remove("with-background");
+  controls.previewGif.style.backgroundImage = "";
+  controls.previewGif.style.backgroundPosition = "";
+  controls.previewGif.style.backgroundSize = "";
 }
 
 controls.download.addEventListener("click", async () => {

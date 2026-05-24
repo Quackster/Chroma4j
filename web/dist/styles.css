@@ -137,6 +137,10 @@ canvas,
   image-rendering: auto;
 }
 
+#preview-gif.with-background {
+  background-repeat: no-repeat;
+}
+
 @media (max-width: 760px) {
   .app {
     grid-template-columns: 1fr;

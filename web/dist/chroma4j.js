@@ -55,6 +55,12 @@ async function renderFromBytes(bytes, options = {}, target) {
     canvas,
     width: rendered.width,
     height: rendered.height,
+    cropX: rendered.cropX || 0,
+    cropY: rendered.cropY || 0,
+    backgroundWidth: rendered.backgroundWidth || 0,
+    backgroundHeight: rendered.backgroundHeight || 0,
+    backgroundDeferred: Boolean(rendered.backgroundDeferred),
+    backgroundUrl: rendered.backgroundDeferred ? normalized.backgroundUrl : "",
     mime,
     isAnimated: Boolean(rendered.isAnimated),
     blob: () => Promise.resolve(new Blob([outputBytes], { type: mime })),
@@ -120,6 +126,7 @@ async function loadBackground(basePath) {
   ctx.drawImage(image, 0, 0);
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
   return {
+    backgroundUrl: image.src,
     backgroundWidth: canvas.width,
     backgroundHeight: canvas.height,
     backgroundRgbaBase64: bytesToBase64(data)
