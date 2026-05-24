@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Chroma WASM</title>
-    <link rel="stylesheet" href="./styles.css?v=wasm-glow-mode-20260524">
-    <script type="module" src="./main.js?v=wasm-glow-mode-20260524"></script>
+    <link rel="stylesheet" href="./styles.css?v=wasm-default-controls-20260524">
+    <script type="module" src="./main.js?v=wasm-default-controls-20260524"></script>
   </head>
   <body>
     <main class="app">
@@ -21,14 +21,14 @@
         <div class="grid">
           <label>
             <span>State</span>
-            <input id="state" type="number" min="0" max="100" value="0">
+            <select id="state" data-default-value="1"></select>
           </label>
           <label>
             <span>Direction</span>
             <select id="direction">
               <option>0</option>
               <option>2</option>
-              <option>4</option>
+              <option selected>4</option>
               <option>6</option>
               <option>1</option>
               <option>3</option>
@@ -37,8 +37,8 @@
             </select>
           </label>
           <label>
-            <span>Color</span>
-            <input id="color" type="number" min="0" max="15" value="0">
+            <span>Colour</span>
+            <input id="color" type="number" min="0" max="99" step="1" value="0">
           </label>
           <label>
             <span>Canvas</span>
@@ -48,7 +48,7 @@
             <span>Format</span>
             <select id="format">
               <option value="png">PNG</option>
-              <option value="gif">GIF</option>
+              <option value="gif" selected>GIF</option>
               <option value="apng">APNG</option>
             </select>
           </label>

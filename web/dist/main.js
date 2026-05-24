@@ -1,4 +1,4 @@
-import { loadChroma4j } from "./chroma4j.js?v=wasm-glow-mode-20260524";
+import { loadChroma4j } from "./chroma4j.js?v=wasm-default-controls-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),
@@ -26,6 +26,8 @@ const controls = {
 let lastResult;
 let lastRenderUrl;
 let lastRenderOptions;
+
+populateNumberOptions(controls.state, 0, 99, Number(controls.state.dataset.defaultValue || 0));
 
 controls.render.addEventListener("click", async () => {
   resetPreview();
@@ -60,6 +62,18 @@ controls.render.addEventListener("click", async () => {
     controls.render.disabled = false;
   }
 });
+
+function populateNumberOptions(select, min, max, selectedValue) {
+  const fragment = document.createDocumentFragment();
+  for (let value = min; value <= max; value += 1) {
+    const option = document.createElement("option");
+    option.value = String(value);
+    option.textContent = String(value);
+    option.selected = value === selectedValue;
+    fragment.appendChild(option);
+  }
+  select.replaceChildren(fragment);
+}
 
 function resetPreview() {
   lastResult = undefined;
