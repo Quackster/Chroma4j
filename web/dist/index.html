@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chroma WASM</title>
+    <link rel="stylesheet" href="./styles.css?v=layout-fix-20260524">
+    <script type="module" src="./main.js?v=wasm-gif-20260524"></script>
+  </head>
+  <body>
+    <main class="app">
+      <section class="controls" aria-label="Renderer controls">
+        <div class="brand">
+          <h1>Chroma WASM</h1>
+          <span>TeaVM client renderer</span>
+        </div>
+        <label class="wide">
+          <span>SWF URL</span>
+          <input id="swf-url" type="url" placeholder="https://example.com/hof_furni/chair.swf" autocomplete="off">
+        </label>
+        <div class="grid">
+          <label>
+            <span>State</span>
+            <input id="state" type="number" min="0" max="100" value="0">
+          </label>
+          <label>
+            <span>Direction</span>
+            <select id="direction">
+              <option>0</option>
+              <option>2</option>
+              <option>4</option>
+              <option>6</option>
+              <option>1</option>
+              <option>3</option>
+              <option>5</option>
+              <option>7</option>
+            </select>
+          </label>
+          <label>
+            <span>Color</span>
+            <input id="color" type="number" min="0" max="15" value="0">
+          </label>
+          <label>
+            <span>Canvas</span>
+            <input id="canvas-color" type="text" value="transparent">
+          </label>
+        </div>
+        <div class="toggles">
+          <label><input id="small" type="checkbox"> Small</label>
+          <label><input id="shadow" type="checkbox"> Shadow</label>
+          <label><input id="crop" type="checkbox" checked> Crop</label>
+          <label><input id="icon" type="checkbox"> Icon</label>
+          <label><input id="gif" type="checkbox"> GIF</label>
+        </div>
+        <div class="actions">
+          <button id="render" type="button">Render</button>
+          <button id="download" type="button" disabled>Download</button>
+        </div>
+        <p id="status" role="status"></p>
+      </section>
+      <section class="preview" aria-label="Furniture preview">
+        <canvas id="preview" width="1" height="1"></canvas>
+        <img id="preview-gif" alt="" hidden>
+      </section>
+    </main>
+  </body>
+</html>
