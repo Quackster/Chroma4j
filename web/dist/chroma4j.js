@@ -66,7 +66,12 @@ async function paintImage(canvas, bytes, mime, width, height) {
   canvas.width = width;
   canvas.height = height;
   if (mime === "image/gif") {
-    canvas.getContext("2d").clearRect(0, 0, width, height);
+    const image = new Image();
+    image.src = `data:${mime};base64,${bytesToBase64(bytes)}`;
+    await image.decode();
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(image, 0, 0);
     return;
   }
   const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));

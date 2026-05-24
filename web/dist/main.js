@@ -14,7 +14,8 @@ const controls = {
   render: document.getElementById("render"),
   download: document.getElementById("download"),
   status: document.getElementById("status"),
-  preview: document.getElementById("preview")
+  preview: document.getElementById("preview"),
+  previewGif: document.getElementById("preview-gif")
 };
 
 let lastResult;
@@ -38,6 +39,7 @@ controls.render.addEventListener("click", async () => {
       icon: controls.icon.checked,
       gif: controls.gif.checked
     }, controls.preview);
+    await updatePreview(lastResult);
     controls.download.disabled = false;
     controls.status.textContent = `${lastResult.width} x ${lastResult.height} ${lastResult.mime} rendered entirely in the browser.`;
   } catch (error) {
@@ -53,6 +55,22 @@ function resetPreview() {
   controls.preview.height = 1;
   const context = controls.preview.getContext("2d");
   context.clearRect(0, 0, controls.preview.width, controls.preview.height);
+  controls.preview.hidden = false;
+  controls.previewGif.hidden = true;
+  controls.previewGif.removeAttribute("src");
+}
+
+async function updatePreview(result) {
+  if (result.mime !== "image/gif") {
+    controls.preview.hidden = false;
+    controls.previewGif.hidden = true;
+    controls.previewGif.removeAttribute("src");
+    return;
+  }
+
+  controls.preview.hidden = true;
+  controls.previewGif.hidden = false;
+  controls.previewGif.src = await result.dataUrl();
 }
 
 controls.download.addEventListener("click", async () => {

@@ -131,7 +131,8 @@ button:disabled {
   background-position: 0 0, 0 12px, 12px -12px, -12px 0;
 }
 
-canvas {
+canvas,
+#preview-gif {
   max-width: 100%;
   image-rendering: auto;
 }
