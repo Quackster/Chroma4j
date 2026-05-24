@@ -46,6 +46,7 @@ public final class ChromaWasm {
                     + ",\"backgroundWidth\":" + result.backgroundWidth
                     + ",\"backgroundHeight\":" + result.backgroundHeight
                     + ",\"backgroundDeferred\":" + result.backgroundDeferred
+                    + ",\"format\":\"" + result.format + "\""
                     + ",\"mime\":\"" + result.mime
                     + "\",\"isAnimated\":" + result.animated
                     + ",\"dataBase64\":\"" + Base64Codec.encode(result.data) + "\""
@@ -345,6 +346,8 @@ public final class ChromaWasm {
         private boolean icon;
         private boolean background;
         private boolean gif;
+        private boolean apng;
+        private String format = "";
         private boolean loop = true;
         private int backgroundWidth;
         private int backgroundHeight;
@@ -371,7 +374,9 @@ public final class ChromaWasm {
             options.shadow = Json.readBoolean(json, "shadow", false);
             options.icon = Json.readBoolean(json, "icon", false);
             options.background = Json.readBoolean(json, "background", false) || Json.readBoolean(json, "bg", false);
-            options.gif = Json.readBoolean(json, "gif", false);
+            options.format = Json.readString(json, "format", "").toLowerCase();
+            options.apng = Json.readBoolean(json, "apng", false) || "apng".equals(options.format);
+            options.gif = !options.apng && (Json.readBoolean(json, "gif", false) || "gif".equals(options.format));
             options.loop = Json.hasKey(json, "loop") ? Json.readBoolean(json, "loop", true) : true;
             options.backgroundWidth = Json.readInt(json, "backgroundWidth", 0);
             options.backgroundHeight = Json.readInt(json, "backgroundHeight", 0);
@@ -397,6 +402,7 @@ public final class ChromaWasm {
         private final boolean backgroundDeferred;
         private final byte[] data;
         private final String mime;
+        private final String format;
         private final boolean animated;
         private final boolean png;
 
@@ -410,6 +416,7 @@ public final class ChromaWasm {
                 boolean backgroundDeferred,
                 byte[] data,
                 String mime,
+                String format,
                 boolean animated,
                 boolean png) {
             this.width = width;
@@ -421,6 +428,7 @@ public final class ChromaWasm {
             this.backgroundDeferred = backgroundDeferred;
             this.data = data;
             this.mime = mime;
+            this.format = format;
             this.animated = animated;
             this.png = png;
         }
@@ -445,7 +453,8 @@ public final class ChromaWasm {
             int renderWidth = options.background && options.backgroundRgba != null && options.backgroundWidth > 0 ? options.backgroundWidth : CANVAS_WIDTH;
             int renderHeight = options.background && options.backgroundRgba != null && options.backgroundHeight > 0 ? options.backgroundHeight : CANVAS_HEIGHT;
             options.deferBackground = options.gif && options.background && options.backgroundRgba != null && options.backgroundWidth > 0 && options.backgroundHeight > 0;
-            int frameCount = options.gif ? animationFrameCount(visualizationXml, size, options.state) : 1;
+            boolean animatedOutput = options.gif || options.apng;
+            int frameCount = animatedOutput ? animationFrameCount(visualizationXml, size, options.state) : 1;
             RenderedFrame[] frames = new RenderedFrame[frameCount];
             Bounds crop = null;
             for (int frameIndex = 0; frameIndex < frameCount; frameIndex++) {
@@ -459,10 +468,25 @@ public final class ChromaWasm {
             if (crop == null) {
                 crop = new Bounds(0, 0, renderWidth, renderHeight);
             }
-            if (options.gif) {
+            if (animatedOutput) {
                 byte[][] rgbaFrames = new byte[frameCount][];
                 for (int i = 0; i < frameCount; i++) {
                     rgbaFrames[i] = cropRgba(frames[i].canvas, renderWidth, crop);
+                }
+                if (options.apng) {
+                    return new RenderResult(
+                            crop.width,
+                            crop.height,
+                            crop.x,
+                            crop.y,
+                            renderWidth,
+                            renderHeight,
+                            false,
+                            ApngEncoder.encode(crop.width, crop.height, rgbaFrames, 120, options.loop),
+                            "image/png",
+                            "apng",
+                            frameCount > 1,
+                            false);
                 }
                 return new RenderResult(
                         crop.width,
@@ -474,6 +498,7 @@ public final class ChromaWasm {
                         options.deferBackground,
                         GifEncoder.encode(crop.width, crop.height, rgbaFrames, 120, options.loop),
                         "image/gif",
+                        "gif",
                         frameCount > 1,
                         false);
             }
@@ -488,6 +513,7 @@ public final class ChromaWasm {
                     false,
                     PngEncoder.encode(crop.width, crop.height, rgba),
                     "image/png",
+                    "png",
                     false,
                     true);
         }
@@ -2080,15 +2106,7 @@ public final class ChromaWasm {
 
     private static final class PngEncoder {
         private static byte[] encode(int width, int height, byte[] rgba) {
-            int scanlineLength = width * 4 + 1;
-            byte[] raw = new byte[scanlineLength * height];
-            for (int y = 0; y < height; y++) {
-                int rawOffset = y * scanlineLength;
-                int dataOffset = y * width * 4;
-                raw[rawOffset] = 0;
-                System.arraycopy(rgba, dataOffset, raw, rawOffset + 1, width * 4);
-            }
-            byte[] compressed = zlibStore(raw);
+            byte[] compressed = zlibStore(scanlines(width, height, rgba));
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             write(out, new byte[]{(byte) 137, 80, 78, 71, 13, 10, 26, 10});
             chunk(out, "IHDR", pngHeader(width, height));
@@ -2097,7 +2115,19 @@ public final class ChromaWasm {
             return out.toByteArray();
         }
 
-        private static byte[] pngHeader(int width, int height) {
+        static byte[] scanlines(int width, int height, byte[] rgba) {
+            int scanlineLength = width * 4 + 1;
+            byte[] raw = new byte[scanlineLength * height];
+            for (int y = 0; y < height; y++) {
+                int rawOffset = y * scanlineLength;
+                int dataOffset = y * width * 4;
+                raw[rawOffset] = 0;
+                System.arraycopy(rgba, dataOffset, raw, rawOffset + 1, width * 4);
+            }
+            return raw;
+        }
+
+        static byte[] pngHeader(int width, int height) {
             byte[] header = new byte[13];
             writeUint32(header, 0, width);
             writeUint32(header, 4, height);
@@ -2106,7 +2136,7 @@ public final class ChromaWasm {
             return header;
         }
 
-        private static void chunk(ByteArrayOutputStream out, String type, byte[] data) {
+        static void chunk(ByteArrayOutputStream out, String type, byte[] data) {
             byte[] typeBytes = type.getBytes(StandardCharsets.UTF_8);
             byte[] crcInput = new byte[typeBytes.length + data.length];
             System.arraycopy(typeBytes, 0, crcInput, 0, typeBytes.length);
@@ -2121,7 +2151,7 @@ public final class ChromaWasm {
             write(out, crc);
         }
 
-        private static byte[] zlibStore(byte[] data) {
+        static byte[] zlibStore(byte[] data) {
             int blockCount = (data.length + 65534) / 65535;
             if (blockCount == 0) {
                 blockCount = 1;
@@ -2151,7 +2181,7 @@ public final class ChromaWasm {
             return output;
         }
 
-        private static int crc32(byte[] bytes) {
+        static int crc32(byte[] bytes) {
             int crc = -1;
             for (int i = 0; i < bytes.length; i++) {
                 crc = crc ^ (bytes[i] & 255);
@@ -2162,7 +2192,7 @@ public final class ChromaWasm {
             return crc ^ -1;
         }
 
-        private static int adler32(byte[] bytes) {
+        static int adler32(byte[] bytes) {
             int a = 1;
             int b = 0;
             for (int i = 0; i < bytes.length; i++) {
@@ -2172,15 +2202,64 @@ public final class ChromaWasm {
             return (b << 16) | a;
         }
 
-        private static void writeUint32(byte[] bytes, int offset, int value) {
+        static void writeUint32(byte[] bytes, int offset, int value) {
             bytes[offset] = (byte) ((value >>> 24) & 255);
             bytes[offset + 1] = (byte) ((value >>> 16) & 255);
             bytes[offset + 2] = (byte) ((value >>> 8) & 255);
             bytes[offset + 3] = (byte) (value & 255);
         }
 
-        private static void write(ByteArrayOutputStream out, byte[] bytes) {
+        static void write(ByteArrayOutputStream out, byte[] bytes) {
             out.write(bytes, 0, bytes.length);
+        }
+    }
+
+    private static final class ApngEncoder {
+        private static byte[] encode(int width, int height, byte[][] frames, int delayMs, boolean loop) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PngEncoder.write(out, new byte[]{(byte) 137, 80, 78, 71, 13, 10, 26, 10});
+            PngEncoder.chunk(out, "IHDR", PngEncoder.pngHeader(width, height));
+
+            byte[] animationControl = new byte[8];
+            PngEncoder.writeUint32(animationControl, 0, frames.length);
+            PngEncoder.writeUint32(animationControl, 4, loop ? 0 : 1);
+            PngEncoder.chunk(out, "acTL", animationControl);
+
+            int sequence = 0;
+            for (int i = 0; i < frames.length; i++) {
+                PngEncoder.chunk(out, "fcTL", frameControl(sequence++, width, height, delayMs));
+                byte[] compressed = PngEncoder.zlibStore(PngEncoder.scanlines(width, height, frames[i]));
+                if (i == 0) {
+                    PngEncoder.chunk(out, "IDAT", compressed);
+                } else {
+                    byte[] frameData = new byte[compressed.length + 4];
+                    PngEncoder.writeUint32(frameData, 0, sequence++);
+                    System.arraycopy(compressed, 0, frameData, 4, compressed.length);
+                    PngEncoder.chunk(out, "fdAT", frameData);
+                }
+            }
+
+            PngEncoder.chunk(out, "IEND", new byte[0]);
+            return out.toByteArray();
+        }
+
+        private static byte[] frameControl(int sequence, int width, int height, int delayMs) {
+            byte[] frameControl = new byte[26];
+            PngEncoder.writeUint32(frameControl, 0, sequence);
+            PngEncoder.writeUint32(frameControl, 4, width);
+            PngEncoder.writeUint32(frameControl, 8, height);
+            PngEncoder.writeUint32(frameControl, 12, 0);
+            PngEncoder.writeUint32(frameControl, 16, 0);
+            writeUint16(frameControl, 20, Math.max(1, Math.min(65535, delayMs)));
+            writeUint16(frameControl, 22, 1000);
+            frameControl[24] = 0;
+            frameControl[25] = 0;
+            return frameControl;
+        }
+
+        private static void writeUint16(byte[] bytes, int offset, int value) {
+            bytes[offset] = (byte) ((value >>> 8) & 255);
+            bytes[offset + 1] = (byte) (value & 255);
         }
     }
 

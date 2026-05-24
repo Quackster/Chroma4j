@@ -56,6 +56,9 @@ class HomeControllerTest {
                 "true",
                 "ABCDEF",
                 "TRUE",
+                null,
+                null,
+                null,
                 null
         );
 
@@ -69,7 +72,39 @@ class HomeControllerTest {
         assertEquals("ABCDEF", options.renderCanvasColour());
         assertFalse(options.cropImage());
         assertFalse(options.renderIcon());
-        assertEquals("rare_dragonlampTrue0415TrueTrueABCDEFFalseFalseFalse", options.cacheKey());
+        assertFalse(options.renderGif());
+        assertFalse(options.renderApng());
+        assertTrue(options.loop());
+        assertEquals("rare_dragonlampTrue0415TrueTrueABCDEFFalseFalseFalseFalseTrue", options.cacheKey());
+    }
+
+    @Test
+    void normalizesApngFormatOverGifForCacheAndResponseMetadata() {
+        HomeController.RenderRequestOptions options = HomeController.RenderRequestOptions.from(
+                "rare_dragonlamp",
+                null,
+                null,
+                "1",
+                "4",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "true",
+                "true",
+                "apng",
+                "false"
+        );
+
+        assertFalse(options.renderGif());
+        assertTrue(options.renderApng());
+        assertFalse(options.loop());
+        assertEquals(".apng", options.extension());
+        assertEquals(MediaType.IMAGE_PNG, options.contentType());
     }
 
     @Test
@@ -83,8 +118,8 @@ class HomeControllerTest {
     void returnsNullWhenSpriteIsMissingLikeCSharpController() {
         HomeController controller = new HomeController();
 
-        assertNull(controller.index(null, null, null, null, null, null, null, null, null, null, null, null, null, null));
-        assertNull(controller.index("", null, null, null, null, null, null, null, null, null, null, null, null, null));
+        assertNull(controller.index(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+        assertNull(controller.index("", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
     }
 
     @Test
@@ -103,6 +138,9 @@ class HomeControllerTest {
                 "true",
                 "336699",
                 "false",
+                null,
+                null,
+                null,
                 null
         );
         byte[] pngBytes = new byte[] {(byte) 0x89, 0x50, 0x4e, 0x47};
@@ -124,6 +162,9 @@ class HomeControllerTest {
                 "true",
                 "336699",
                 "false",
+                null,
+                null,
+                null,
                 null
         );
 

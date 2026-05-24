@@ -21,6 +21,10 @@ final class SimpleGifEncoder {
     }
 
     static byte[] encode(List<BufferedImage> frames, int delayMs) {
+        return encode(frames, delayMs, true);
+    }
+
+    static byte[] encode(List<BufferedImage> frames, int delayMs, boolean loop) {
         if (frames.isEmpty()) {
             throw new IllegalArgumentException("frames");
         }
@@ -45,7 +49,7 @@ final class SimpleGifEncoder {
                 writer.prepareWriteSequence(null);
                 for (int i = 0; i < rgbaFrames.length; i++) {
                     BufferedImage frame = indexedImage(width, height, rgbaFrames[i], palette);
-                    IIOMetadata metadata = metadata(writer, frame, delayMs, i == 0);
+                    IIOMetadata metadata = metadata(writer, frame, delayMs, i == 0, loop);
                     writer.writeToSequence(new javax.imageio.IIOImage(frame, null, metadata), null);
                 }
                 writer.endWriteSequence();
@@ -78,7 +82,7 @@ final class SimpleGifEncoder {
         return image;
     }
 
-    private static IIOMetadata metadata(ImageWriter writer, BufferedImage image, int delayMs, boolean firstFrame) throws IOException {
+    private static IIOMetadata metadata(ImageWriter writer, BufferedImage image, int delayMs, boolean firstFrame, boolean loop) throws IOException {
         ImageTypeSpecifier type = ImageTypeSpecifier.createFromRenderedImage(image);
         IIOMetadata metadata = writer.getDefaultImageMetadata(type, null);
         String format = metadata.getNativeMetadataFormatName();
@@ -91,7 +95,7 @@ final class SimpleGifEncoder {
         graphicControl.setAttribute("delayTime", String.valueOf(Math.max(1, delayMs / 10)));
         graphicControl.setAttribute("transparentColorIndex", "0");
 
-        if (firstFrame) {
+        if (firstFrame && loop) {
             IIOMetadataNode appExtensions = child(root, "ApplicationExtensions");
             IIOMetadataNode netscape = new IIOMetadataNode("ApplicationExtension");
             netscape.setAttribute("applicationID", "NETSCAPE");

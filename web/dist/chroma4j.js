@@ -1,5 +1,5 @@
 let teavmInstancePromise;
-const BUILD_VERSION = "wasm-gif-local-palette-20260524";
+const BUILD_VERSION = "wasm-apng-20260524";
 
 export async function loadChroma4j(options = {}) {
   await ensureTeaVm(options.basePath || ".");
@@ -47,10 +47,11 @@ async function renderFromBytes(bytes, options = {}, target) {
   }
 
   const mime = rendered.mime || "image/png";
+  const format = rendered.format || (mime === "image/gif" ? "gif" : "png");
   const dataBase64 = rendered.dataBase64 || rendered.pngBase64;
   const outputBytes = base64ToBytes(dataBase64);
   const canvas = target || document.createElement("canvas");
-  await paintImage(canvas, outputBytes, mime, rendered.width, rendered.height);
+  await paintImage(canvas, outputBytes, mime, format, rendered.width, rendered.height);
   return {
     canvas,
     width: rendered.width,
@@ -62,16 +63,17 @@ async function renderFromBytes(bytes, options = {}, target) {
     backgroundDeferred: Boolean(rendered.backgroundDeferred),
     backgroundUrl: rendered.backgroundDeferred ? normalized.backgroundUrl : "",
     mime,
+    format,
     isAnimated: Boolean(rendered.isAnimated),
     blob: () => Promise.resolve(new Blob([outputBytes], { type: mime })),
     dataUrl: () => Promise.resolve(`data:${mime};base64,${dataBase64}`)
   };
 }
 
-async function paintImage(canvas, bytes, mime, width, height) {
+async function paintImage(canvas, bytes, mime, format, width, height) {
   canvas.width = width;
   canvas.height = height;
-  if (mime === "image/gif") {
+  if (mime === "image/gif" || format === "apng") {
     const image = new Image();
     image.src = `data:${mime};base64,${bytesToBase64(bytes)}`;
     await image.decode();
@@ -94,6 +96,9 @@ async function normalizeOptions(options) {
     direction = numeric(options.rotation, direction);
   }
   const state = numeric(options.state, 0);
+  const requestedFormat = String(options.format || "").toLowerCase();
+  const apng = optionBoolean(options.apng) || requestedFormat === "apng";
+  const gif = !apng && (optionBoolean(options.gif) || requestedFormat === "gif");
   const normalized = {
     sprite: options.sprite || "",
     small: optionBoolean(options.small) || optionBoolean(options.s),
@@ -105,7 +110,9 @@ async function normalizeOptions(options) {
     shadow: optionBoolean(options.shadow),
     icon: optionBoolean(options.icon),
     background: backgroundBoolean(options.bg) || optionBoolean(options.background),
-    gif: optionBoolean(options.gif),
+    gif,
+    apng,
+    format: apng ? "apng" : (gif ? "gif" : "png"),
     loop: options.loop === undefined ? true : optionBoolean(options.loop)
   };
   if (normalized.background) {

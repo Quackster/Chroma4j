@@ -53,7 +53,7 @@ Open:
 http://localhost:5177
 ```
 
-Paste a CORS-enabled furni SWF URL, choose render options, and click `Render`. The page fetches SWF bytes in the browser, passes them to the TeaVM parser, and exports PNG by default or animated GIF when `gif: true` is selected.
+Paste a CORS-enabled furni SWF URL, choose render options, and click `Render`. The page fetches SWF bytes in the browser, passes them to the TeaVM parser, and exports PNG by default, animated GIF when `gif: true` is selected, or animated PNG when `apng: true` is selected.
 
 ## JavaScript API
 
@@ -73,7 +73,7 @@ document.body.append(result.canvas);
 const png = await result.blob();
 ```
 
-PNG is the default output. `result.mime` is `image/png`, `result.canvas` contains the rendered pixels, and `result.blob()` returns a browser `Blob` containing the PNG bytes.
+PNG is the default output. `result.format` is `png`, `result.mime` is `image/png`, `result.canvas` contains the rendered pixels, and `result.blob()` returns a browser `Blob` containing the PNG bytes.
 
 To paint PNG output into an existing canvas:
 
@@ -108,11 +108,26 @@ const result = await chroma.renderFromUrl("https://example.com/hof_furni/rare_dr
   loop: true
 });
 
+console.log(result.format);    // "gif"
 console.log(result.mime);      // "image/gif"
 console.log(result.isAnimated); // true when the selected state has multiple frames
 ```
 
-Use an `<img>` for animated GIF playback:
+To render animated PNG instead, pass `apng: true` or `format: "apng"`:
+
+```js
+const result = await chroma.renderFromUrl("https://example.com/hof_furni/rare_dragonlamp.swf", {
+  state: 1,
+  direction: 4,
+  apng: true,
+  loop: true
+});
+
+console.log(result.format); // "apng"
+console.log(result.mime);   // "image/png"
+```
+
+Use an `<img>` for animated GIF or APNG playback:
 
 ```js
 const img = document.createElement("img");
@@ -129,7 +144,7 @@ img.src = URL.createObjectURL(blob);
 document.body.append(img);
 ```
 
-`result.canvas` is still populated for GIF results, but a canvas cannot play an animated GIF by itself. It is useful only as a first-frame/static preview. Use `result.blob()` or `result.dataUrl()` with an `<img>` when you want the animation.
+`result.canvas` is still populated for animated results, but a canvas cannot play an animated GIF or APNG by itself. It is useful only as a first-frame/static preview. Use `result.blob()` or `result.dataUrl()` with an `<img>` when you want the animation.
 
 You can also provide SWF bytes directly:
 
@@ -150,7 +165,9 @@ Supported first-release options mirror the server endpoint where applicable:
 - `canvas`
 - `icon`
 - `gif`: `false` by default for PNG output; `true` returns GIF bytes when the selected state has animation frames.
-- `loop`: `true` by default for GIF output; set `false` to emit a non-looping GIF.
+- `apng`: `false` by default for PNG output; `true` returns APNG bytes. APNG is served as PNG-compatible `image/png`.
+- `format`: optional `"png"`, `"gif"`, or `"apng"` selector. `apng` wins if both animated formats are requested.
+- `loop`: `true` by default for animated output; set `false` to emit a non-looping GIF or APNG.
 
 ## Build The Spring Webapp
 
@@ -166,4 +183,4 @@ Run it with:
 java -jar chroma-webapp\build\libs\chroma-webapp-1.0.0.jar
 ```
 
-The server listens on port `5000` and expects SWFs under `swfs/hof_furni`.
+The server listens on port `5000` and expects SWFs under `swfs/hof_furni`. Use `gif=true` for GIF output, `apng=true` or `format=apng` for APNG output, and `loop=false` for a non-looping animation.

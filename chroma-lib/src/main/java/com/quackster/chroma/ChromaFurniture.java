@@ -547,6 +547,22 @@ public class ChromaFurniture {
     }
 
     public byte[] createGif() {
+        return createGif(true);
+    }
+
+    public byte[] createGif(boolean loop) {
+        return SimpleGifEncoder.encode(createAnimationFrames(), 120, loop);
+    }
+
+    public byte[] createApng() {
+        return createApng(true);
+    }
+
+    public byte[] createApng(boolean loop) {
+        return SimpleApngEncoder.encode(createAnimationFrames(), 120, loop);
+    }
+
+    private List<BufferedImage> createAnimationFrames() {
         int frameCount = getAnimationFrameCount();
         List<BufferedImage> frames = new ArrayList<>();
         List<Color> cropColours = cropColours();
@@ -566,7 +582,7 @@ public class ChromaFurniture {
             }
             frames = croppedFrames;
         }
-        return SimpleGifEncoder.encode(frames, 120);
+        return frames;
     }
 
     public int getAnimationFrameCount() {

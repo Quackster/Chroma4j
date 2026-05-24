@@ -1,4 +1,4 @@
-import { loadChroma4j } from "./chroma4j.js?v=wasm-gif-local-palette-20260524";
+import { loadChroma4j } from "./chroma4j.js?v=wasm-apng-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),
@@ -12,6 +12,7 @@ const controls = {
   icon: document.getElementById("icon"),
   bg: document.getElementById("bg"),
   gif: document.getElementById("gif"),
+  apng: document.getElementById("apng"),
   loop: document.getElementById("loop"),
   render: document.getElementById("render"),
   download: document.getElementById("download"),
@@ -21,6 +22,18 @@ const controls = {
 };
 
 let lastResult;
+
+controls.gif.addEventListener("change", () => {
+  if (controls.gif.checked) {
+    controls.apng.checked = false;
+  }
+});
+
+controls.apng.addEventListener("change", () => {
+  if (controls.apng.checked) {
+    controls.gif.checked = false;
+  }
+});
 
 controls.render.addEventListener("click", async () => {
   resetPreview();
@@ -41,11 +54,12 @@ controls.render.addEventListener("click", async () => {
       icon: controls.icon.checked,
       bg: controls.bg.checked,
       gif: controls.gif.checked,
+      apng: controls.apng.checked,
       loop: controls.loop.checked
     }, controls.preview);
     await updatePreview(lastResult);
     controls.download.disabled = false;
-    controls.status.textContent = `${lastResult.width} x ${lastResult.height} ${lastResult.mime} rendered entirely in the browser.`;
+    controls.status.textContent = `${lastResult.width} x ${lastResult.height} ${lastResult.format.toUpperCase()} rendered entirely in the browser.`;
   } catch (error) {
     controls.status.textContent = error.message;
   } finally {
@@ -66,7 +80,7 @@ function resetPreview() {
 }
 
 async function updatePreview(result) {
-  if (result.mime !== "image/gif") {
+  if (result.format !== "gif" && result.format !== "apng") {
     controls.preview.hidden = false;
     controls.previewGif.hidden = true;
     controls.previewGif.removeAttribute("src");
@@ -103,7 +117,8 @@ controls.download.addEventListener("click", async () => {
   const blob = await lastResult.blob();
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = lastResult.mime === "image/gif" ? "furni.gif" : "furni.png";
+  const extension = lastResult.format === "gif" ? "gif" : (lastResult.format === "apng" ? "apng" : "png");
+  link.download = `furni.${extension}`;
   link.click();
   URL.revokeObjectURL(link.href);
 });

@@ -72,6 +72,25 @@ class ChromaFurnitureAddInkTest {
         assertTrue(blackPixel.getBlue() <= 64);
     }
 
+    @Test
+    void apngEncoderWritesAnimatedPngChunks() {
+        BufferedImage first = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage second = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        first.setRGB(0, 0, new Color(255, 0, 0, 255).getRGB());
+        second.setRGB(0, 0, new Color(0, 255, 0, 255).getRGB());
+
+        byte[] apng = SimpleApngEncoder.encode(List.of(first, second), 120, false);
+
+        assertEquals((byte) 0x89, apng[0]);
+        assertEquals(0x50, apng[1]);
+        assertEquals(0x4e, apng[2]);
+        assertEquals(0x47, apng[3]);
+        assertTrue(containsAscii(apng, "acTL"));
+        assertTrue(containsAscii(apng, "fcTL"));
+        assertTrue(containsAscii(apng, "IDAT"));
+        assertTrue(containsAscii(apng, "fdAT"));
+    }
+
     private static void applyAddPinBlending(
         BufferedImage canvas,
         BufferedImage foreground,
@@ -87,5 +106,22 @@ class ChromaFurnitureAddInkTest {
             boolean.class);
         method.setAccessible(true);
         method.invoke(furniture, canvas, foreground, 0, 0, preserveDestinationAlpha);
+    }
+
+    private static boolean containsAscii(byte[] bytes, String needle) {
+        byte[] needleBytes = needle.getBytes();
+        for (int i = 0; i <= bytes.length - needleBytes.length; i++) {
+            boolean matches = true;
+            for (int j = 0; j < needleBytes.length; j++) {
+                if (bytes[i + j] != needleBytes[j]) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches) {
+                return true;
+            }
+        }
+        return false;
     }
 }

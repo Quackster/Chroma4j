@@ -40,7 +40,10 @@ public class HomeController {
             @RequestParam(name = "shadow", required = false) String shadow,
             @RequestParam(name = "canvas", required = false) String canvas,
             @RequestParam(name = "icon", required = false) String icon,
-            @RequestParam(name = "gif", required = false) String gif
+            @RequestParam(name = "gif", required = false) String gif,
+            @RequestParam(name = "apng", required = false) String apng,
+            @RequestParam(name = "format", required = false) String format,
+            @RequestParam(name = "loop", required = false) String loop
     ) {
 
         RenderRequestOptions options = RenderRequestOptions.from(
@@ -57,7 +60,10 @@ public class HomeController {
                 shadow,
                 canvas,
                 icon,
-                gif
+                gif,
+                apng,
+                format,
+                loop
         );
 
         if (sprite == null || sprite.isEmpty()) {
@@ -67,7 +73,7 @@ public class HomeController {
         String hashedUniqueName = options.cacheHash();
 
         Path exportDir = Paths.get("furni_export", sprite, "export");
-        Path cachedImagePath = exportDir.resolve(hashedUniqueName + (options.renderGif() ? ".gif" : ".png"));
+        Path cachedImagePath = exportDir.resolve(hashedUniqueName + options.extension());
 
         try {
             Files.createDirectories(exportDir);
@@ -90,13 +96,20 @@ public class HomeController {
                 );
 
                 furni.run();
-                byte[] bytes = options.renderGif() ? furni.createGif() : furni.createImage();
+                byte[] bytes;
+                if (options.renderApng()) {
+                    bytes = furni.createApng(options.loop());
+                } else if (options.renderGif()) {
+                    bytes = furni.createGif(options.loop());
+                } else {
+                    bytes = furni.createImage();
+                }
                 Files.write(cachedImagePath, bytes != null ? bytes : new byte[0]);
             }
 
             if (Files.exists(cachedImagePath)) {
                 HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(options.renderGif() ? MediaType.IMAGE_GIF : MediaType.IMAGE_PNG);
+                headers.setContentType(options.contentType());
 
                 return ResponseEntity.ok()
                         .headers(headers)
@@ -168,7 +181,9 @@ public class HomeController {
             String renderCanvasColour,
             boolean cropImage,
             boolean renderIcon,
-            boolean renderGif
+            boolean renderGif,
+            boolean renderApng,
+            boolean loop
     ) {
         static RenderRequestOptions from(
                 String sprite,
@@ -184,7 +199,10 @@ public class HomeController {
                 String shadow,
                 String canvas,
                 String icon,
-                String gif
+                String gif,
+                String apng,
+                String format,
+                String loop
         ) {
             boolean isSmallFurni = parseBoolean(small) || parseBoolean(s);
             int renderState = parseNumeric(state, 0);
@@ -221,7 +239,10 @@ public class HomeController {
                 renderCanvasColour = canvas;
             }
             boolean renderIcon = parseBoolean(icon);
-            boolean renderGif = parseBoolean(gif);
+            String normalizedFormat = format == null ? "" : format.trim().toLowerCase();
+            boolean renderApng = parseBoolean(apng) || "apng".equals(normalizedFormat);
+            boolean renderGif = !renderApng && (parseBoolean(gif) || "gif".equals(normalizedFormat));
+            boolean loopAnimation = loop == null || parseBoolean(loop);
 
             if (renderState >= 101) {
                 renderState = 0;
@@ -241,7 +262,9 @@ public class HomeController {
                     renderCanvasColour,
                     cropImage,
                     renderIcon,
-                    renderGif
+                    renderGif,
+                    renderApng,
+                    loopAnimation
             );
         }
 
@@ -249,11 +272,22 @@ public class HomeController {
             return sprite + csharpBool(isSmallFurni) + renderState + renderDirection +
                     colorId + csharpBool(renderShadows) + csharpBool(renderBackground) +
                     renderCanvasColour + csharpBool(cropImage) + csharpBool(renderIcon) +
-                    csharpBool(renderGif);
+                    csharpBool(renderGif) + csharpBool(renderApng) + csharpBool(loop);
         }
 
         String cacheHash() {
             return hash(cacheKey());
+        }
+
+        String extension() {
+            if (renderApng) {
+                return ".apng";
+            }
+            return renderGif ? ".gif" : ".png";
+        }
+
+        MediaType contentType() {
+            return renderGif ? MediaType.IMAGE_GIF : MediaType.IMAGE_PNG;
         }
     }
 }
