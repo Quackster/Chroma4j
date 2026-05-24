@@ -33,6 +33,7 @@ public class ChromaFurniture {
     private String sprite;
     private List<ChromaAsset> assets;
     private BufferedImage drawingCanvas;
+    private Map<Integer, ChromaFrame.Frame> resolvedAnimationFrames = new HashMap<>();
     
     private static final int CANVAS_WIDTH = 1200;
     private static final int CANVAS_HEIGHT = 1200;
@@ -149,54 +150,89 @@ public class ChromaFurniture {
         }
         
         String size = isSmallFurni ? "32" : "64";
-        NodeList frames = findFrames(xmlData, size);
-        
         this.highestAnimationLayer = 0;
-        
-        if (frames != null) {
-            for (int i = 0; i < frames.getLength(); i++) {
-                Node frame = frames.item(i);
-                
-                Node animationLayerNode = frame.getParentNode().getParentNode();
-                int letterPosition = Integer.parseInt(animationLayerNode.getAttributes().getNamedItem("id").getNodeValue());
-                
-                if (letterPosition < 0 || letterPosition > 26) {
+
+        Node visualization = findVisualization(xmlData, size);
+        Node animationsNode = firstDirectChild(visualization, "animations");
+        NodeList animationNodes = directChildren(animationsNode, "animation");
+        for (int i = 0; i < animationNodes.getLength(); i++) {
+            Node animationNode = animationNodes.item(i);
+            int animationId = attrInt(animationNode, "id", 0);
+            this.animationCount = Math.max(this.animationCount, animationId + 1);
+
+            NodeList animationLayers = directChildren(animationNode, "animationLayer");
+            for (int j = 0; j < animationLayers.getLength(); j++) {
+                Node animationLayerNode = animationLayers.item(j);
+                int animationLayer = attrInt(animationLayerNode, "id", -1);
+                if (animationLayer < 0 || animationLayer > 26) {
                     continue;
                 }
-                
-                int animationLetter = letterPosition;
-                highestAnimationLayer = letterPosition + 1;
-                
-                Node animationNode = animationLayerNode.getParentNode();
-                int animationId = Integer.parseInt(animationNode.getAttributes().getNamedItem("id").getNodeValue());
-                int castAnimationId = animationId + 1;
-                
-                if (castAnimationId > this.animationCount) {
-                    this.animationCount = castAnimationId;
-                }
-                
-                if (!this.animations.containsKey(animationLetter)) {
-                    this.animations.put(animationLetter, new ChromaAnimation());
-                }
-                
-                if (!this.animations.get(animationLetter).getStates().containsKey(animationId)) {
-                    ChromaFrame frameClass = new ChromaFrame();
-                    this.animations.get(animationLetter).getStates().put(animationId, frameClass);
-                    
-                    Node loopCountAttr = animationLayerNode.getAttributes().getNamedItem("loopCount");
-                    if (loopCountAttr != null) {
-                        frameClass.setLoop(Integer.parseInt(loopCountAttr.getNodeValue()));
+
+                highestAnimationLayer = Math.max(highestAnimationLayer, animationLayer + 1);
+                ChromaAnimation animation = this.animations.computeIfAbsent(animationLayer, key -> new ChromaAnimation());
+                ChromaFrame frameClass = new ChromaFrame();
+                frameClass.setLoop(attrInt(animationLayerNode, "loopCount", 1));
+                frameClass.setFramesPerSecond(attrInt(animationLayerNode, "frameRepeat", 1));
+                animation.getStates().put(animationId, frameClass);
+
+                NodeList frameSequences = directChildren(animationLayerNode, "frameSequence");
+                for (int k = 0; k < frameSequences.getLength(); k++) {
+                    Node frameSequenceNode = frameSequences.item(k);
+                    ChromaFrame.Sequence sequence = new ChromaFrame.Sequence(attrInt(frameSequenceNode, "loopCount", 1));
+                    frameClass.getSequences().add(sequence);
+                    NodeList frameNodes = directChildren(frameSequenceNode, "frame");
+                    for (int l = 0; l < frameNodes.getLength(); l++) {
+                        Node frameNode = frameNodes.item(l);
+                        String id = attrString(frameNode, "id", "0");
+                        int x = attrInt(frameNode, "x", 0);
+                        int y = attrInt(frameNode, "y", 0);
+                        ChromaFrame.Frame frame = new ChromaFrame.Frame(id, x, y);
+                        Node offsetsNode = firstDirectChild(frameNode, "offsets");
+                        NodeList offsets = directChildren(offsetsNode, "offset");
+                        for (int m = 0; m < offsets.getLength(); m++) {
+                            Node offset = offsets.item(m);
+                            frame.setOffset(
+                                attrInt(offset, "direction", 0),
+                                attrInt(offset, "x", x),
+                                attrInt(offset, "y", y));
+                        }
+                        frameClass.getFrames().add(id);
+                        sequence.getFrames().add(frame);
                     }
-                    
-                    Node frameRepeatAttr = animationLayerNode.getAttributes().getNamedItem("frameRepeat");
-                    if (frameRepeatAttr != null) {
-                        frameClass.setFramesPerSecond(Integer.parseInt(frameRepeatAttr.getNodeValue()));
-                    }
                 }
-                
-                this.animations.get(animationLetter).getStates().get(animationId).getFrames().add(frame.getAttributes().getNamedItem("id").getNodeValue());
             }
         }
+    }
+
+    private Node findVisualization(Document xmlData, String size) {
+        NodeList visualizations = xmlData.getElementsByTagName("visualization");
+        for (int i = 0; i < visualizations.getLength(); i++) {
+            Node visualization = visualizations.item(i);
+            Node sizeAttr = visualization.getAttributes().getNamedItem("size");
+            if (sizeAttr != null && sizeAttr.getNodeValue().equals(size)) {
+                return visualization;
+            }
+        }
+        return null;
+    }
+
+    private static int attrInt(Node node, String name, int fallback) {
+        String value = attrString(node, name, null);
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    private static String attrString(Node node, String name, String fallback) {
+        if (node == null || node.getAttributes() == null || node.getAttributes().getNamedItem(name) == null) {
+            return fallback;
+        }
+        return node.getAttributes().getNamedItem(name).getNodeValue();
     }
 
     private NodeList findFrames(Document xmlData, String size) {
@@ -298,11 +334,14 @@ public class ChromaFurniture {
             }
         }
         
-        this.highestAnimationLayer = assets.stream()
-            .filter(x -> !x.isShadow())
-            .mapToInt(ChromaAsset::getLayer)
-            .max()
-            .orElseThrow() + 1;
+        int configuredLayerCount = readLayerCount(visualization, isSmallFurni ? "32" : "64");
+        this.highestAnimationLayer = configuredLayerCount > 0
+            ? configuredLayerCount
+            : assets.stream()
+                .filter(x -> !x.isShadow())
+                .mapToInt(ChromaAsset::getLayer)
+                .max()
+                .orElseThrow() + 1;
         
         // Fill in missing animation states
         for (int i = 0; i < highestAnimationLayer; i++) {
@@ -370,6 +409,11 @@ public class ChromaFurniture {
             e.printStackTrace();
         }
         return null;
+    }
+
+    private int readLayerCount(Document xmlData, String size) {
+        Node visualization = findVisualization(xmlData, size);
+        return attrInt(visualization, "layerCount", 0);
     }
 
     private static Node firstDirectChild(Node parent, String name) {
@@ -440,27 +484,44 @@ public class ChromaFurniture {
         List<ChromaAsset> validDirections = selectFallbackDirection(candidates, requestedRenderDirection);
         
         candidates = validDirections;
+        Map<String, ChromaAsset> candidateByName = candidates.stream()
+            .collect(Collectors.toMap(ChromaAsset::getImageName, x -> x, (first, ignored) -> first, LinkedHashMap::new));
         List<ChromaAsset> renderFrames = new ArrayList<>();
         
         for (int layer = 0; layer < this.highestAnimationLayer; layer++) {
             int frame = 0;
+            ChromaFrame.Frame resolvedFrame = null;
+            ChromaFrame.Frame baseFrame = null;
             
             if (animations.containsKey(layer) &&
                 !animations.get(layer).getStates().isEmpty() &&
                 animations.get(layer).getStates().containsKey(renderState)) {
                 
                 ChromaFrame frameData = animations.get(layer).getStates().get(renderState);
-                if (!frameData.getFrames().isEmpty()) {
-                    int index = Math.floorMod(animationFrameIndex, frameData.getFrames().size());
-                    frame = Integer.parseInt(frameData.getFrames().get(index));
+                baseFrame = frameData.firstFrame(renderDirection);
+                resolvedFrame = frameData.resolveAvailableFrame(animationFrameIndex, renderDirection);
+                if (resolvedFrame != null) {
+                    frame = Integer.parseInt(resolvedFrame.getId());
+                    resolvedAnimationFrames.put(layer, resolvedFrame);
                 }
             }
             
-            final int frameToFind = frame;
-            final int layerToFind = layer;
-            renderFrames.addAll(candidates.stream()
-                .filter(x -> x.getLayer() == layerToFind && x.getFrame() == frameToFind)
-                .collect(Collectors.toList()));
+            ChromaAsset asset = candidateByName.get(frameAssetName(layer, frame));
+            if (asset == null && baseFrame != null) {
+                asset = candidateByName.get(frameAssetName(layer, Integer.parseInt(baseFrame.getId())));
+                if (asset != null) {
+                    resolvedAnimationFrames.put(layer, baseFrame);
+                }
+            }
+            if (asset == null) {
+                asset = candidateByName.get(frameAssetName(layer, 0));
+                if (asset != null) {
+                    resolvedAnimationFrames.remove(layer);
+                }
+            }
+            if (asset != null && asset.getImagePath() != null) {
+                renderFrames.add(asset);
+            }
         }
         
         if (!this.renderShadows) {
@@ -473,6 +534,14 @@ public class ChromaFurniture {
         return renderFrames;
     }
 
+    private String frameAssetName(int layer, int frame) {
+        String layerName = FileUtil.numericLetter(layer);
+        if (isIcon) {
+            return sprite + "_icon_" + layerName;
+        }
+        return sprite + "_" + (isSmallFurni ? "32" : "64") + "_" + layerName + "_" + renderDirection + "_" + frame;
+    }
+
     public byte[] createImage() {
         return renderImage(createFrameImage(0));
     }
@@ -480,8 +549,22 @@ public class ChromaFurniture {
     public byte[] createGif() {
         int frameCount = getAnimationFrameCount();
         List<BufferedImage> frames = new ArrayList<>();
+        List<Color> cropColours = cropColours();
+        Rectangle cropBounds = null;
         for (int i = 0; i < frameCount; i++) {
-            frames.add(createFrameImage(i));
+            BufferedImage frame = createFrameImage(i, false);
+            frames.add(frame);
+            if (cropImage && !cropColours.isEmpty()) {
+                Rectangle frameBounds = findCropBounds(frame, cropColours);
+                cropBounds = cropBounds == null ? frameBounds : cropBounds.union(frameBounds);
+            }
+        }
+        if (cropImage && cropBounds != null) {
+            List<BufferedImage> croppedFrames = new ArrayList<>();
+            for (BufferedImage frame : frames) {
+                croppedFrames.add(cropFrame(frame, cropBounds));
+            }
+            frames = croppedFrames;
         }
         return SimpleGifEncoder.encode(frames, 120);
     }
@@ -490,30 +573,26 @@ public class ChromaFurniture {
         int frameCount = 1;
         for (ChromaAnimation animation : animations.values()) {
             ChromaFrame frame = animation.getStates().get(renderState);
-            if (frame != null && !frame.getFrames().isEmpty()) {
-                frameCount = Math.max(frameCount, frame.getFrames().size());
+            if (frame != null) {
+                frameCount = Math.max(frameCount, frame.getAvailableFrameCount());
             }
         }
         return frameCount;
     }
 
     private BufferedImage createFrameImage(int animationFrameIndex) {
+        return createFrameImage(animationFrameIndex, true);
+    }
+
+    private BufferedImage createFrameImage(int animationFrameIndex, boolean applyCrop) {
+        resolvedAnimationFrames = new HashMap<>();
         List<ChromaAsset> buildQueue = createBuildQueue(animationFrameIndex);
         
         if (buildQueue == null) {
             return null;
         }
         
-        List<Color> cropColours = new ArrayList<>();
-        
-        if (this.cropImage) {
-            if (this.renderBackground) {
-                cropColours.add(new Color(142, 142, 94));
-                cropColours.add(new Color(152, 152, 101));
-            } else {
-                cropColours.add(hexToColor(this.renderCanvasColour));
-            }
-        }
+        List<Color> cropColours = applyCrop ? cropColours() : new ArrayList<>();
         
         BufferedImage canvas = copyImage(drawingCanvas);
         Graphics2D g = canvas.createGraphics();
@@ -545,8 +624,11 @@ public class ChromaFurniture {
                 }
                 
                 // Handle different ink modes
-                int x = canvas.getWidth() - asset.getImageX();
-                int y = canvas.getHeight() - asset.getImageY();
+                ChromaFrame.Frame animationFrame = resolvedAnimationFrames.get(asset.getLayer());
+                int animationX = animationFrame == null ? 0 : animationFrame.getX();
+                int animationY = animationFrame == null ? 0 : animationFrame.getY();
+                int x = canvas.getWidth() - asset.getImageX() + animationX;
+                int y = canvas.getHeight() - asset.getImageY() + animationY;
                 
                 if ("ADD".equals(asset.getInk()) || "33".equals(asset.getInk())) {
                     // Add Pin (33): Add RGB values and clamp to 255
@@ -564,11 +646,118 @@ public class ChromaFurniture {
         
         BufferedImage finalImage = canvas;
         
-        if (cropImage && !cropColours.isEmpty()) {
+        if (applyCrop && cropImage && !cropColours.isEmpty()) {
             finalImage = ImageUtil.trimBitmap(canvas, cropColours.toArray(new Color[0]));
         }
 
         return finalImage;
+    }
+
+    private List<Color> cropColours() {
+        List<Color> cropColours = new ArrayList<>();
+        if (this.cropImage) {
+            if (this.renderBackground) {
+                cropColours.add(new Color(142, 142, 94));
+                cropColours.add(new Color(152, 152, 101));
+            } else {
+                cropColours.add(hexToColor(this.renderCanvasColour));
+            }
+        }
+        return cropColours;
+    }
+
+    private Rectangle findCropBounds(BufferedImage image, List<Color> cropColours) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int topmost = 0;
+        for (int row = 0; row < height; row++) {
+            if (!allCropColorRow(image, row, cropColours)) {
+                break;
+            }
+            topmost = row;
+        }
+
+        int bottommost = 0;
+        for (int row = height - 1; row >= 0; row--) {
+            if (!allCropColorRow(image, row, cropColours)) {
+                break;
+            }
+            bottommost = row;
+        }
+
+        int leftmost = 0;
+        for (int col = 0; col < width; col++) {
+            if (!allCropColorColumn(image, col, cropColours)) {
+                break;
+            }
+            leftmost = col;
+        }
+
+        int rightmost = 0;
+        for (int col = width - 1; col >= 0; col--) {
+            if (!allCropColorColumn(image, col, cropColours)) {
+                break;
+            }
+            rightmost = col;
+        }
+
+        if (rightmost == 0) {
+            rightmost = width;
+        }
+        if (bottommost == 0) {
+            bottommost = height;
+        }
+
+        int croppedWidth = rightmost - leftmost;
+        int croppedHeight = bottommost - topmost;
+        if (croppedWidth == 0) {
+            leftmost = 0;
+            croppedWidth = width;
+        }
+        if (croppedHeight == 0) {
+            topmost = 0;
+            croppedHeight = height;
+        }
+        return new Rectangle(leftmost, topmost, croppedWidth, croppedHeight);
+    }
+
+    private boolean allCropColorRow(BufferedImage image, int row, List<Color> cropColours) {
+        for (int x = 0; x < image.getWidth(); x++) {
+            if (!isCropColor(image.getRGB(x, row), cropColours)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean allCropColorColumn(BufferedImage image, int column, List<Color> cropColours) {
+        for (int y = 0; y < image.getHeight(); y++) {
+            if (!isCropColor(image.getRGB(column, y), cropColours)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isCropColor(int argb, List<Color> cropColours) {
+        Color pixel = new Color(argb, true);
+        for (Color color : cropColours) {
+            if (pixel.getRed() == color.getRed() &&
+                pixel.getGreen() == color.getGreen() &&
+                pixel.getBlue() == color.getBlue() &&
+                pixel.getAlpha() == color.getAlpha()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private BufferedImage cropFrame(BufferedImage image, Rectangle bounds) {
+        BufferedImage cropped = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = cropped.createGraphics();
+        g.drawImage(image, 0, 0, bounds.width, bounds.height, bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height, null);
+        g.dispose();
+        return cropped;
     }
 
     private byte[] renderImage(BufferedImage image) {

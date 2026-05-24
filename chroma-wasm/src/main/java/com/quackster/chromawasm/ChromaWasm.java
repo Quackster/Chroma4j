@@ -530,7 +530,7 @@ public final class ChromaWasm {
             String size = options.small ? "32" : "64";
             Map<Integer, LayerInfo> layers = readLayers(visualizationXml, size, direction);
             Map<Integer, String> colorLayers = readColorLayers(visualizationXml, size, options.color);
-            Map<Integer, Integer> animations = readAnimationFrames(visualizationXml, size, options.state, animationFrameIndex);
+            Map<Integer, AnimationFrameRef> animations = readAnimationFrames(visualizationXml, size, options.state, animationFrameIndex, direction);
             List<RenderAsset> candidates = new ArrayList<>();
             List<XmlNode> assetNodes = assetsXml.descendants("asset");
             for (int i = 0; i < assetNodes.size(); i++) {
@@ -563,6 +563,7 @@ public final class ChromaWasm {
                     layerInfo.z = parsed.layer;
                 }
                 RenderAsset asset = new RenderAsset();
+                asset.name = name;
                 asset.image = image.image;
                 asset.flipH = "1".equals(node.attr("flipH")) || image.flipH;
                 int x = parseInt(node.attr("x"), 0);
@@ -592,13 +593,36 @@ public final class ChromaWasm {
             }
 
             List<RenderAsset> assets = new ArrayList<>();
+            Map<String, RenderAsset> candidateByName = new LinkedHashMap<>();
+            for (int i = 0; i < candidates.size(); i++) {
+                RenderAsset candidate = candidates.get(i);
+                if (!candidateByName.containsKey(candidate.name)) {
+                    candidateByName.put(candidate.name, candidate);
+                }
+            }
             for (int layer = 0; layer < highestLayer; layer++) {
-                int frame = animations.containsKey(layer) ? animations.get(layer) : 0;
-                for (int i = 0; i < candidates.size(); i++) {
-                    RenderAsset asset = candidates.get(i);
-                    if (asset.layer == layer && (options.icon || (asset.direction == direction && asset.frame == frame))) {
-                        assets.add(asset);
+                AnimationFrameRef animationFrame = animations.get(layer);
+                int frame = animationFrame == null ? 0 : animationFrame.id;
+                AnimationFrameRef baseFrame = resolveAnimationFrame(visualizationXml, size, options.state, layer, 0, direction);
+                RenderAsset asset = candidateByName.get(frameAssetName(sprite, size, options.icon, layer, direction, frame));
+                if (asset == null && baseFrame != null) {
+                    asset = candidateByName.get(frameAssetName(sprite, size, options.icon, layer, direction, baseFrame.id));
+                    if (asset != null) {
+                        animationFrame = baseFrame;
                     }
+                }
+                if (asset == null) {
+                    asset = candidateByName.get(frameAssetName(sprite, size, options.icon, layer, direction, 0));
+                    if (asset != null) {
+                        animationFrame = null;
+                    }
+                }
+                if (asset != null) {
+                    if (animationFrame != null) {
+                        asset.x -= animationFrame.x;
+                        asset.y -= animationFrame.y;
+                    }
+                    assets.add(asset);
                 }
             }
             List<RenderAsset> filtered = new ArrayList<>();
@@ -675,8 +699,8 @@ public final class ChromaWasm {
             return result;
         }
 
-        private static Map<Integer, Integer> readAnimationFrames(XmlNode doc, String size, int state, int animationFrameIndex) {
-            Map<Integer, Integer> result = new LinkedHashMap<>();
+        private static Map<Integer, AnimationFrameRef> readAnimationFrames(XmlNode doc, String size, int state, int animationFrameIndex, int direction) {
+            Map<Integer, AnimationFrameRef> result = new LinkedHashMap<>();
             XmlNode visualization = visualization(doc, size);
             if (visualization == null) {
                 return result;
@@ -692,15 +716,85 @@ public final class ChromaWasm {
                 for (int j = 0; j < layers.size(); j++) {
                     XmlNode layer = layers.get(j);
                     int id = parseInt(layer.attr("id"), -1);
-                    XmlNode frameSequence = firstChild(layer, "frameSequence");
-                    List<XmlNode> frames = children(frameSequence, "frame");
-                    if (id >= 0 && !frames.isEmpty()) {
-                        XmlNode frame = frames.get(Math.floorMod(animationFrameIndex, frames.size()));
-                        result.put(id, parseInt(frame.attr("id"), 0));
+                    AnimationFrameRef frame = resolveAnimationFrame(layer, animationFrameIndex, direction);
+                    if (id >= 0 && frame != null) {
+                        result.put(id, frame);
                     }
                 }
             }
             return result;
+        }
+
+        private static AnimationFrameRef resolveAnimationFrame(XmlNode layer, int animationFrameIndex, int direction) {
+            List<AnimationSequence> sequences = readAnimationSequences(layer);
+            int availableFrameCount = 0;
+            for (int i = 0; i < sequences.size(); i++) {
+                availableFrameCount += sequences.get(i).availableFrameCount();
+            }
+            if (availableFrameCount < 1) {
+                return null;
+            }
+            int localFrame = Math.min(Math.max(0, animationFrameIndex), availableFrameCount - 1);
+            int cursor = 0;
+            for (int i = 0; i < sequences.size(); i++) {
+                AnimationSequence sequence = sequences.get(i);
+                int count = sequence.availableFrameCount();
+                if (localFrame < cursor + count) {
+                    return sequence.availableFrame(localFrame - cursor, direction);
+                }
+                cursor += count;
+            }
+            return null;
+        }
+
+        private static AnimationFrameRef resolveAnimationFrame(XmlNode doc, String size, int state, int layerId, int animationFrameIndex, int direction) {
+            XmlNode visualization = visualization(doc, size);
+            if (visualization == null) {
+                return null;
+            }
+            List<XmlNode> animations = children(firstChild(visualization, "animations"), "animation");
+            for (int i = 0; i < animations.size(); i++) {
+                XmlNode animation = animations.get(i);
+                if (!String.valueOf(state).equals(animation.attr("id"))) {
+                    continue;
+                }
+                List<XmlNode> layers = children(animation, "animationLayer");
+                for (int j = 0; j < layers.size(); j++) {
+                    XmlNode layer = layers.get(j);
+                    if (parseInt(layer.attr("id"), -1) == layerId) {
+                        return resolveAnimationFrame(layer, animationFrameIndex, direction);
+                    }
+                }
+            }
+            return null;
+        }
+
+        private static List<AnimationSequence> readAnimationSequences(XmlNode layer) {
+            List<AnimationSequence> sequences = new ArrayList<>();
+            List<XmlNode> frameSequences = children(layer, "frameSequence");
+            for (int i = 0; i < frameSequences.size(); i++) {
+                XmlNode frameSequence = frameSequences.get(i);
+                AnimationSequence sequence = new AnimationSequence(Math.max(1, parseInt(frameSequence.attr("loopCount"), 1)));
+                List<XmlNode> frames = children(frameSequence, "frame");
+                for (int j = 0; j < frames.size(); j++) {
+                    XmlNode frame = frames.get(j);
+                    AnimationFrameRef frameRef = new AnimationFrameRef(
+                            parseInt(frame.attr("id"), 0),
+                            parseInt(frame.attr("x"), 0),
+                            parseInt(frame.attr("y"), 0));
+                    List<XmlNode> offsets = children(firstChild(frame, "offsets"), "offset");
+                    for (int k = 0; k < offsets.size(); k++) {
+                        XmlNode offset = offsets.get(k);
+                        frameRef.offsets.put(parseInt(offset.attr("direction"), 0), new int[] {
+                                parseInt(offset.attr("x"), frameRef.x),
+                                parseInt(offset.attr("y"), frameRef.y)
+                        });
+                    }
+                    sequence.frames.add(frameRef);
+                }
+                sequences.add(sequence);
+            }
+            return sequences;
         }
 
         private static int animationFrameCount(XmlNode doc, String size, int state) {
@@ -717,11 +811,27 @@ public final class ChromaWasm {
                 }
                 List<XmlNode> layers = children(animation, "animationLayer");
                 for (int j = 0; j < layers.size(); j++) {
-                    XmlNode frameSequence = firstChild(layers.get(j), "frameSequence");
-                    count = Math.max(count, children(frameSequence, "frame").size());
+                    count = Math.max(count, animationLayerFrameCount(layers.get(j)));
                 }
             }
             return count;
+        }
+
+        private static int animationLayerFrameCount(XmlNode layer) {
+            int sequenceFrames = 0;
+            List<XmlNode> sequences = children(layer, "frameSequence");
+            for (int i = 0; i < sequences.size(); i++) {
+                sequenceFrames += children(sequences.get(i), "frame").size();
+            }
+            return Math.max(1, sequenceFrames);
+        }
+
+        private static String frameAssetName(String sprite, String size, boolean icon, int layer, int direction, int frame) {
+            String layerName = String.valueOf((char) ('a' + layer));
+            if (icon) {
+                return sprite + "_icon_" + layerName;
+            }
+            return sprite + "_" + size + "_" + layerName + "_" + direction + "_" + frame;
         }
 
         private static int readMaxState(XmlNode doc, String size, int direction) {
@@ -1228,6 +1338,7 @@ public final class ChromaWasm {
     }
 
     private static final class RenderAsset {
+        private String name = "";
         private ImageAsset image;
         private boolean flipH;
         private int x;
@@ -1247,6 +1358,58 @@ public final class ChromaWasm {
         private int z;
         private boolean zSet;
         private int alpha = -1;
+    }
+
+    private static final class AnimationSequence {
+        private final int loopCount;
+        private final List<AnimationFrameRef> frames = new ArrayList<>();
+
+        private AnimationSequence(int loopCount) {
+            this.loopCount = loopCount;
+        }
+
+        private int frameCount() {
+            return frames.size() * loopCount;
+        }
+
+        private int availableFrameCount() {
+            return frames.size();
+        }
+
+        private AnimationFrameRef frame(int index, int direction) {
+            if (frames.isEmpty() || index < 0 || index >= frameCount()) {
+                return null;
+            }
+            return frames.get(index % frames.size()).forDirection(direction);
+        }
+
+        private AnimationFrameRef availableFrame(int index, int direction) {
+            if (frames.isEmpty() || index < 0 || index >= frames.size()) {
+                return null;
+            }
+            return frames.get(index).forDirection(direction);
+        }
+    }
+
+    private static final class AnimationFrameRef {
+        private final int id;
+        private final int x;
+        private final int y;
+        private final Map<Integer, int[]> offsets = new LinkedHashMap<>();
+
+        private AnimationFrameRef(int id, int x, int y) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+        }
+
+        private AnimationFrameRef forDirection(int direction) {
+            int[] offset = offsets.get(direction);
+            if (offset == null) {
+                return this;
+            }
+            return new AnimationFrameRef(id, offset[0], offset[1]);
+        }
     }
 
     private static final class ParsedAsset {
@@ -1476,7 +1639,7 @@ public final class ChromaWasm {
                 out.write(0x21);
                 out.write(0xf9);
                 out.write(4);
-                out.write(1);
+                out.write(9);
                 writeShort(out, Math.max(1, delayMs / 10));
                 out.write(0);
                 out.write(0);
@@ -1498,48 +1661,20 @@ public final class ChromaWasm {
             BitWriter writer = new BitWriter(bits);
             int clear = 256;
             int end = 257;
-            int nextCode = 258;
             int codeSize = 9;
-            Map<String, Integer> table = initialTable();
             writer.write(clear, codeSize);
-            String prefix = key(indexed[0] & 255);
-            for (int i = 1; i < indexed.length; i++) {
-                String current = key(indexed[i] & 255);
-                String combined = prefix + "," + current;
-                if (table.containsKey(combined)) {
-                    prefix = combined;
-                } else {
-                    writer.write(table.get(prefix), codeSize);
-                    if (nextCode < 4096) {
-                        table.put(combined, nextCode++);
-                        if (nextCode == (1 << codeSize) && codeSize < 12) {
-                            codeSize++;
-                        }
-                    } else {
-                        writer.write(clear, codeSize);
-                        table = initialTable();
-                        nextCode = 258;
-                        codeSize = 9;
-                    }
-                    prefix = current;
+            int codesSinceClear = 0;
+            for (int i = 0; i < indexed.length; i++) {
+                if (codesSinceClear >= 240) {
+                    writer.write(clear, codeSize);
+                    codesSinceClear = 0;
                 }
+                writer.write(indexed[i] & 255, codeSize);
+                codesSinceClear++;
             }
-            writer.write(table.get(prefix), codeSize);
             writer.write(end, codeSize);
             writer.flush();
             return bits.toByteArray();
-        }
-
-        private static Map<String, Integer> initialTable() {
-            Map<String, Integer> table = new LinkedHashMap<>();
-            for (int i = 0; i < 256; i++) {
-                table.put(key(i), i);
-            }
-            return table;
-        }
-
-        private static String key(int value) {
-            return String.valueOf((char) value);
         }
 
         private static void writeSubBlocks(ByteArrayOutputStream out, byte[] bytes) {
@@ -1650,7 +1785,8 @@ public final class ChromaWasm {
                 int r = (color >>> 16) & 255;
                 int g = (color >>> 8) & 255;
                 int b = color & 255;
-                return 1 + ((r * 7 / 255) << 5) + ((g * 7 / 255) << 2) + (b * 3 / 255);
+                int index = 1 + ((r * 7 / 255) << 5) + ((g * 7 / 255) << 2) + (b * 3 / 255);
+                return Math.min(255, index);
             }
         }
     }
