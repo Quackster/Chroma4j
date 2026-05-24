@@ -940,12 +940,18 @@ public class ChromaFurniture {
                 if (preserveDestinationAlpha) {
                     alpha = bgColor.getAlpha();
                     if (alpha == 0) {
-                        continue;
+                        if (isAddNoOp(fgColor)) {
+                            continue;
+                        }
+                        alpha = fgColor.getAlpha();
+                        r = fgColor.getRed();
+                        g = fgColor.getGreen();
+                        b = fgColor.getBlue();
+                    } else {
+                        r = clampChannel(bgColor.getRed() + fgColor.getRed());
+                        g = clampChannel(bgColor.getGreen() + fgColor.getGreen());
+                        b = clampChannel(bgColor.getBlue() + fgColor.getBlue());
                     }
-
-                    r = clampChannel(bgColor.getRed() + fgColor.getRed());
-                    g = clampChannel(bgColor.getGreen() + fgColor.getGreen());
-                    b = clampChannel(bgColor.getBlue() + fgColor.getBlue());
                 } else {
                     alpha = blendNormalAlpha(fgColor.getAlpha(), bgColor.getAlpha());
                     r = blendAddChannel(fgColor.getRed(), fgColor.getAlpha(), bgColor.getRed(), bgColor.getAlpha(), alpha);
@@ -957,6 +963,10 @@ public class ChromaFurniture {
                 canvas.setRGB(cx, cy, blendedColor.getRGB());
             }
         }
+    }
+
+    private boolean isAddNoOp(Color color) {
+        return color.getRed() == 0 && color.getGreen() == 0 && color.getBlue() == 0;
     }
 
     private int blendAddChannel(int fg, int fgAlpha, int bg, int bgAlpha, int alpha) {

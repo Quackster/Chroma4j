@@ -1041,6 +1041,9 @@ public final class ChromaWasm {
                     int canvasIndex = cy * canvasWidth + cx;
                     int bgPixel = canvas[canvasIndex];
                     int bgAlpha = alpha(bgPixel);
+                    int fgRed = source[sourceIndex] & 255;
+                    int fgGreen = source[sourceIndex + 1] & 255;
+                    int fgBlue = source[sourceIndex + 2] & 255;
                     int outAlpha;
                     int r;
                     int g;
@@ -1049,32 +1052,50 @@ public final class ChromaWasm {
                         int backdropPixel = backgroundPixel(options, cx, cy);
                         int backdropAlpha = alpha(backdropPixel);
                         if (backdropAlpha == 0) {
-                            continue;
-                        }
-                        outAlpha = blendNormalAlpha(fgAlpha, backdropAlpha);
-                        r = blendAddChannel(source[sourceIndex] & 255, fgAlpha, red(backdropPixel), backdropAlpha, outAlpha);
-                        g = blendAddChannel(source[sourceIndex + 1] & 255, fgAlpha, green(backdropPixel), backdropAlpha, outAlpha);
-                        b = blendAddChannel(source[sourceIndex + 2] & 255, fgAlpha, blue(backdropPixel), backdropAlpha, outAlpha);
-                        if (outAlpha == backdropAlpha && r == red(backdropPixel) && g == green(backdropPixel) && b == blue(backdropPixel)) {
-                            continue;
+                            if (isAddNoOp(fgRed, fgGreen, fgBlue)) {
+                                continue;
+                            }
+                            outAlpha = fgAlpha;
+                            r = fgRed;
+                            g = fgGreen;
+                            b = fgBlue;
+                        } else {
+                            outAlpha = blendNormalAlpha(fgAlpha, backdropAlpha);
+                            r = blendAddChannel(fgRed, fgAlpha, red(backdropPixel), backdropAlpha, outAlpha);
+                            g = blendAddChannel(fgGreen, fgAlpha, green(backdropPixel), backdropAlpha, outAlpha);
+                            b = blendAddChannel(fgBlue, fgAlpha, blue(backdropPixel), backdropAlpha, outAlpha);
+                            if (outAlpha == backdropAlpha && r == red(backdropPixel) && g == green(backdropPixel) && b == blue(backdropPixel)) {
+                                continue;
+                            }
                         }
                     } else if (preserveDestinationAlpha) {
                         outAlpha = bgAlpha;
                         if (outAlpha == 0) {
-                            continue;
+                            if (isAddNoOp(fgRed, fgGreen, fgBlue)) {
+                                continue;
+                            }
+                            outAlpha = fgAlpha;
+                            r = fgRed;
+                            g = fgGreen;
+                            b = fgBlue;
+                        } else {
+                            r = clamp(red(bgPixel) + fgRed);
+                            g = clamp(green(bgPixel) + fgGreen);
+                            b = clamp(blue(bgPixel) + fgBlue);
                         }
-                        r = clamp(red(bgPixel) + (source[sourceIndex] & 255));
-                        g = clamp(green(bgPixel) + (source[sourceIndex + 1] & 255));
-                        b = clamp(blue(bgPixel) + (source[sourceIndex + 2] & 255));
                     } else {
                         outAlpha = blendNormalAlpha(fgAlpha, bgAlpha);
-                        r = blendAddChannel(source[sourceIndex] & 255, fgAlpha, red(bgPixel), bgAlpha, outAlpha);
-                        g = blendAddChannel(source[sourceIndex + 1] & 255, fgAlpha, green(bgPixel), bgAlpha, outAlpha);
-                        b = blendAddChannel(source[sourceIndex + 2] & 255, fgAlpha, blue(bgPixel), bgAlpha, outAlpha);
+                        r = blendAddChannel(fgRed, fgAlpha, red(bgPixel), bgAlpha, outAlpha);
+                        g = blendAddChannel(fgGreen, fgAlpha, green(bgPixel), bgAlpha, outAlpha);
+                        b = blendAddChannel(fgBlue, fgAlpha, blue(bgPixel), bgAlpha, outAlpha);
                     }
                     canvas[canvasIndex] = argb(outAlpha, r, g, b);
                 }
             }
+        }
+
+        private static boolean isAddNoOp(int r, int g, int b) {
+            return r == 0 && g == 0 && b == 0;
         }
 
         private static int backgroundPixel(RenderOptions options, int x, int y) {

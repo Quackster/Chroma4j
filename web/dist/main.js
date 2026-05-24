@@ -1,4 +1,4 @@
-import { loadChroma4j } from "./chroma4j.js?v=wasm-apng-20260524";
+import { loadChroma4j } from "./chroma4j.js?v=wasm-format-select-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),
@@ -6,13 +6,12 @@ const controls = {
   direction: document.getElementById("direction"),
   color: document.getElementById("color"),
   canvas: document.getElementById("canvas-color"),
+  format: document.getElementById("format"),
   small: document.getElementById("small"),
   shadow: document.getElementById("shadow"),
   crop: document.getElementById("crop"),
   icon: document.getElementById("icon"),
   bg: document.getElementById("bg"),
-  gif: document.getElementById("gif"),
-  apng: document.getElementById("apng"),
   loop: document.getElementById("loop"),
   render: document.getElementById("render"),
   download: document.getElementById("download"),
@@ -22,18 +21,6 @@ const controls = {
 };
 
 let lastResult;
-
-controls.gif.addEventListener("change", () => {
-  if (controls.gif.checked) {
-    controls.apng.checked = false;
-  }
-});
-
-controls.apng.addEventListener("change", () => {
-  if (controls.apng.checked) {
-    controls.gif.checked = false;
-  }
-});
 
 controls.render.addEventListener("click", async () => {
   resetPreview();
@@ -48,13 +35,12 @@ controls.render.addEventListener("click", async () => {
       direction: controls.direction.value,
       color: controls.color.value,
       canvas: controls.canvas.value,
+      format: controls.format.value,
       small: controls.small.checked,
       shadow: controls.shadow.checked,
       crop: controls.crop.checked,
       icon: controls.icon.checked,
       bg: controls.bg.checked,
-      gif: controls.gif.checked,
-      apng: controls.apng.checked,
       loop: controls.loop.checked
     }, controls.preview);
     await updatePreview(lastResult);

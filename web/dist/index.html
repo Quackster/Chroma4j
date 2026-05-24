@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Chroma WASM</title>
-    <link rel="stylesheet" href="./styles.css?v=wasm-apng-20260524">
-    <script type="module" src="./main.js?v=wasm-apng-20260524"></script>
+    <link rel="stylesheet" href="./styles.css?v=wasm-format-select-20260524">
+    <script type="module" src="./main.js?v=wasm-format-select-20260524"></script>
   </head>
   <body>
     <main class="app">
@@ -44,6 +44,14 @@
             <span>Canvas</span>
             <input id="canvas-color" type="text" value="transparent">
           </label>
+          <label>
+            <span>Format</span>
+            <select id="format">
+              <option value="png">PNG</option>
+              <option value="gif">GIF</option>
+              <option value="apng">APNG</option>
+            </select>
+          </label>
         </div>
         <div class="toggles">
           <label><input id="small" type="checkbox"> Small</label>
@@ -51,8 +59,6 @@
           <label><input id="crop" type="checkbox" checked> Crop</label>
           <label><input id="icon" type="checkbox"> Icon</label>
           <label><input id="bg" type="checkbox" checked> Background</label>
-          <label><input id="gif" type="checkbox"> GIF</label>
-          <label><input id="apng" type="checkbox"> APNG</label>
           <label><input id="loop" type="checkbox" checked> Loop Animation</label>
         </div>
         <div class="actions">

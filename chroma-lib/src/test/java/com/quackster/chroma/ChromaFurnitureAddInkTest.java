@@ -15,14 +15,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ChromaFurnitureAddInkTest {
 
     @Test
-    void addInkDoesNotWriteBlackAlphaOntoTransparentCanvas() throws Exception {
-        BufferedImage canvas = new BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB);
+    void addInkKeepsBlackTransparentButShowsColorOnTransparentCanvas() throws Exception {
+        BufferedImage canvas = new BufferedImage(3, 1, BufferedImage.TYPE_INT_ARGB);
         canvas.setRGB(0, 0, new Color(0, 0, 0, 0).getRGB());
         canvas.setRGB(1, 0, new Color(100, 80, 60, 255).getRGB());
+        canvas.setRGB(2, 0, new Color(0, 0, 0, 0).getRGB());
 
-        BufferedImage foreground = new BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage foreground = new BufferedImage(3, 1, BufferedImage.TYPE_INT_ARGB);
         foreground.setRGB(0, 0, new Color(0, 0, 0, 255).getRGB());
         foreground.setRGB(1, 0, new Color(30, 40, 50, 255).getRGB());
+        foreground.setRGB(2, 0, new Color(200, 100, 50, 128).getRGB());
 
         applyAddPinBlending(canvas, foreground, true);
 
@@ -34,6 +36,12 @@ class ChromaFurnitureAddInkTest {
         assertEquals(120, blendedPixel.getGreen());
         assertEquals(110, blendedPixel.getBlue());
         assertEquals(255, blendedPixel.getAlpha());
+
+        Color transparentAddPixel = new Color(canvas.getRGB(2, 0), true);
+        assertEquals(200, transparentAddPixel.getRed());
+        assertEquals(100, transparentAddPixel.getGreen());
+        assertEquals(50, transparentAddPixel.getBlue());
+        assertEquals(128, transparentAddPixel.getAlpha());
     }
 
     @Test
