@@ -162,7 +162,7 @@ Supported first-release options mirror the server endpoint where applicable:
 - `crop`
 - `bg` / `background`
 - `shadow`
-- `canvas`
+- `canvas`: a hex colour, `transparent`, or an HTTP/HTTPS image URL in the browser build. URL backgrounds must allow CORS pixel reads.
 - `icon`
 - `gif`: `false` by default for PNG output; `true` returns GIF bytes when the selected state has animation frames.
 - `apng`: `false` by default for PNG output; `true` returns APNG bytes. APNG is served as PNG-compatible `image/png`.

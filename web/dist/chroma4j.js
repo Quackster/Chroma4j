@@ -1,5 +1,5 @@
 let teavmInstancePromise;
-const BUILD_VERSION = "wasm-apng-20260524";
+const BUILD_VERSION = "wasm-canvas-url-20260524";
 
 export async function loadChroma4j(options = {}) {
   await ensureTeaVm(options.basePath || ".");
@@ -99,40 +99,55 @@ async function normalizeOptions(options) {
   const requestedFormat = String(options.format || "").toLowerCase();
   const apng = optionBoolean(options.apng) || requestedFormat === "apng";
   const gif = !apng && (optionBoolean(options.gif) || requestedFormat === "gif");
+  const rawCanvas = options.canvas === undefined ? "transparent" : String(options.canvas).trim();
+  const canvasBackgroundUrl = httpUrl(rawCanvas) ? rawCanvas : "";
   const normalized = {
     sprite: options.sprite || "",
     small: optionBoolean(options.small) || optionBoolean(options.s),
     state: state >= 101 ? 0 : state,
     direction,
     color: normalizeColor(options),
-    canvas: options.canvas === undefined ? "transparent" : options.canvas,
+    canvas: canvasBackgroundUrl ? "transparent" : rawCanvas,
     crop: options.crop === undefined ? true : optionBoolean(options.crop),
     shadow: optionBoolean(options.shadow),
     icon: optionBoolean(options.icon),
-    background: backgroundBoolean(options.bg) || optionBoolean(options.background),
+    background: Boolean(canvasBackgroundUrl) || backgroundBoolean(options.bg) || optionBoolean(options.background),
     gif,
     apng,
     format: apng ? "apng" : (gif ? "gif" : "png"),
     loop: options.loop === undefined ? true : optionBoolean(options.loop)
   };
-  if (normalized.background) {
-    Object.assign(normalized, await loadBackground(options.basePath || "."));
+  if (canvasBackgroundUrl || normalized.background) {
+    const backgroundUrl = canvasBackgroundUrl || `${options.basePath || "."}/bg.png`;
+    Object.assign(normalized, await loadBackground(backgroundUrl));
   }
   return normalized;
 }
 
-async function loadBackground(basePath) {
+async function loadBackground(url) {
   const image = new Image();
   image.crossOrigin = "anonymous";
-  image.src = `${basePath}/bg.png`;
-  await image.decode();
+  image.src = url;
+  try {
+    await image.decode();
+  } catch {
+    throw new Error(`Background image failed to load: ${url}`);
+  }
   const canvas = document.createElement("canvas");
   canvas.width = image.naturalWidth || image.width;
   canvas.height = image.naturalHeight || image.height;
+  if (canvas.width <= 0 || canvas.height <= 0) {
+    throw new Error(`Background image has no readable size: ${url}`);
+  }
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(image, 0, 0);
-  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let data;
+  try {
+    data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  } catch {
+    throw new Error(`Background image must allow CORS pixel reads: ${url}`);
+  }
   return {
     backgroundUrl: image.src,
     backgroundWidth: canvas.width,
@@ -174,6 +189,15 @@ function optionBoolean(value) {
 function backgroundBoolean(value) {
   if (typeof value === "string" && value.toLowerCase() === "false") return false;
   return optionBoolean(value);
+}
+
+function httpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function spriteFromUrl(url) {
