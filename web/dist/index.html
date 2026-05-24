@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Chroma WASM</title>
     <link rel="stylesheet" href="./styles.css?v=layout-fix-20260524">
-    <script type="module" src="./main.js?v=wasm-render-20260524"></script>
+    <script type="module" src="./main.js?v=wasm-gif-20260524"></script>
   </head>
   <body>
     <main class="app">
@@ -50,10 +50,11 @@
           <label><input id="shadow" type="checkbox"> Shadow</label>
           <label><input id="crop" type="checkbox" checked> Crop</label>
           <label><input id="icon" type="checkbox"> Icon</label>
+          <label><input id="gif" type="checkbox"> GIF</label>
         </div>
         <div class="actions">
           <button id="render" type="button">Render</button>
-          <button id="download" type="button" disabled>Download PNG</button>
+          <button id="download" type="button" disabled>Download</button>
         </div>
         <p id="status" role="status"></p>
       </section>

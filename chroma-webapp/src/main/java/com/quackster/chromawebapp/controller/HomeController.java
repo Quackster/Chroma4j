@@ -56,7 +56,8 @@ public class HomeController {
                 crop,
                 shadow,
                 canvas,
-                icon
+                icon,
+                gif
         );
 
         if (sprite == null || sprite.isEmpty()) {
@@ -66,7 +67,7 @@ public class HomeController {
         String hashedUniqueName = options.cacheHash();
 
         Path exportDir = Paths.get("furni_export", sprite, "export");
-        Path cachedImagePath = exportDir.resolve(hashedUniqueName + ".png");
+        Path cachedImagePath = exportDir.resolve(hashedUniqueName + (options.renderGif() ? ".gif" : ".png"));
 
         try {
             Files.createDirectories(exportDir);
@@ -89,13 +90,13 @@ public class HomeController {
                 );
 
                 furni.run();
-                byte[] bytes = furni.createImage();
+                byte[] bytes = options.renderGif() ? furni.createGif() : furni.createImage();
                 Files.write(cachedImagePath, bytes != null ? bytes : new byte[0]);
             }
 
             if (Files.exists(cachedImagePath)) {
                 HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.IMAGE_PNG);
+                headers.setContentType(options.renderGif() ? MediaType.IMAGE_GIF : MediaType.IMAGE_PNG);
 
                 return ResponseEntity.ok()
                         .headers(headers)
@@ -166,7 +167,8 @@ public class HomeController {
             boolean renderBackground,
             String renderCanvasColour,
             boolean cropImage,
-            boolean renderIcon
+            boolean renderIcon,
+            boolean renderGif
     ) {
         static RenderRequestOptions from(
                 String sprite,
@@ -181,7 +183,8 @@ public class HomeController {
                 String crop,
                 String shadow,
                 String canvas,
-                String icon
+                String icon,
+                String gif
         ) {
             boolean isSmallFurni = parseBoolean(small) || parseBoolean(s);
             int renderState = parseNumeric(state, 0);
@@ -218,6 +221,7 @@ public class HomeController {
                 renderCanvasColour = canvas;
             }
             boolean renderIcon = parseBoolean(icon);
+            boolean renderGif = parseBoolean(gif);
 
             if (renderState >= 101) {
                 renderState = 0;
@@ -236,14 +240,16 @@ public class HomeController {
                     renderBackground,
                     renderCanvasColour,
                     cropImage,
-                    renderIcon
+                    renderIcon,
+                    renderGif
             );
         }
 
         String cacheKey() {
             return sprite + csharpBool(isSmallFurni) + renderState + renderDirection +
                     colorId + csharpBool(renderShadows) + csharpBool(renderBackground) +
-                    renderCanvasColour + csharpBool(cropImage) + csharpBool(renderIcon);
+                    renderCanvasColour + csharpBool(cropImage) + csharpBool(renderIcon) +
+                    csharpBool(renderGif);
         }
 
         String cacheHash() {

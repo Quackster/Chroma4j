@@ -1,5 +1,5 @@
 let teavmInstancePromise;
-const BUILD_VERSION = "wasm-render-20260524";
+const BUILD_VERSION = "wasm-gif-20260524";
 
 export async function loadChroma4j(options = {}) {
   await ensureTeaVm(options.basePath || ".");
@@ -46,22 +46,30 @@ async function renderFromBytes(bytes, options = {}, target) {
     throw new Error(rendered.error || "SWF rendering failed");
   }
 
-  const pngBytes = base64ToBytes(rendered.pngBase64);
+  const mime = rendered.mime || "image/png";
+  const dataBase64 = rendered.dataBase64 || rendered.pngBase64;
+  const outputBytes = base64ToBytes(dataBase64);
   const canvas = target || document.createElement("canvas");
-  await paintPng(canvas, pngBytes, rendered.width, rendered.height);
+  await paintImage(canvas, outputBytes, mime, rendered.width, rendered.height);
   return {
     canvas,
     width: rendered.width,
     height: rendered.height,
-    blob: () => Promise.resolve(new Blob([pngBytes], { type: "image/png" })),
-    dataUrl: () => Promise.resolve(`data:image/png;base64,${rendered.pngBase64}`)
+    mime,
+    isAnimated: Boolean(rendered.isAnimated),
+    blob: () => Promise.resolve(new Blob([outputBytes], { type: mime })),
+    dataUrl: () => Promise.resolve(`data:${mime};base64,${dataBase64}`)
   };
 }
 
-async function paintPng(canvas, pngBytes, width, height) {
+async function paintImage(canvas, bytes, mime, width, height) {
   canvas.width = width;
   canvas.height = height;
-  const bitmap = await createImageBitmap(new Blob([pngBytes], { type: "image/png" }));
+  if (mime === "image/gif") {
+    canvas.getContext("2d").clearRect(0, 0, width, height);
+    return;
+  }
+  const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, width, height);
@@ -85,7 +93,8 @@ async function normalizeOptions(options) {
     crop: options.crop === undefined ? true : optionBoolean(options.crop),
     shadow: optionBoolean(options.shadow),
     icon: optionBoolean(options.icon),
-    background: backgroundBoolean(options.bg) || optionBoolean(options.background)
+    background: backgroundBoolean(options.bg) || optionBoolean(options.background),
+    gif: optionBoolean(options.gif)
   };
   if (normalized.background) {
     Object.assign(normalized, await loadBackground(options.basePath || "."));

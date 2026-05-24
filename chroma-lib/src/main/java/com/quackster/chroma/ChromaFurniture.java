@@ -132,7 +132,7 @@ public class ChromaFurniture {
         generateAnimations();
         generateAssets();
         
-        createBuildQueue();
+        createBuildQueue(0);
         
         this.outputFileName = getFileName();
         return this.outputFileName;
@@ -428,7 +428,7 @@ public class ChromaFurniture {
         }
     }
 
-    private List<ChromaAsset> createBuildQueue() {
+    private List<ChromaAsset> createBuildQueue(int animationFrameIndex) {
         if (renderState > maxStates) {
             renderState = 0;
         }
@@ -451,7 +451,8 @@ public class ChromaFurniture {
                 
                 ChromaFrame frameData = animations.get(layer).getStates().get(renderState);
                 if (!frameData.getFrames().isEmpty()) {
-                    frame = Integer.parseInt(frameData.getFrames().get(0));
+                    int index = Math.floorMod(animationFrameIndex, frameData.getFrames().size());
+                    frame = Integer.parseInt(frameData.getFrames().get(index));
                 }
             }
             
@@ -473,7 +474,31 @@ public class ChromaFurniture {
     }
 
     public byte[] createImage() {
-        List<ChromaAsset> buildQueue = createBuildQueue();
+        return renderImage(createFrameImage(0));
+    }
+
+    public byte[] createGif() {
+        int frameCount = getAnimationFrameCount();
+        List<BufferedImage> frames = new ArrayList<>();
+        for (int i = 0; i < frameCount; i++) {
+            frames.add(createFrameImage(i));
+        }
+        return SimpleGifEncoder.encode(frames, 120);
+    }
+
+    public int getAnimationFrameCount() {
+        int frameCount = 1;
+        for (ChromaAnimation animation : animations.values()) {
+            ChromaFrame frame = animation.getStates().get(renderState);
+            if (frame != null && !frame.getFrames().isEmpty()) {
+                frameCount = Math.max(frameCount, frame.getFrames().size());
+            }
+        }
+        return frameCount;
+    }
+
+    private BufferedImage createFrameImage(int animationFrameIndex) {
+        List<ChromaAsset> buildQueue = createBuildQueue(animationFrameIndex);
         
         if (buildQueue == null) {
             return null;
@@ -543,7 +568,7 @@ public class ChromaFurniture {
             finalImage = ImageUtil.trimBitmap(canvas, cropColours.toArray(new Color[0]));
         }
 
-        return renderImage(finalImage);
+        return finalImage;
     }
 
     private byte[] renderImage(BufferedImage image) {

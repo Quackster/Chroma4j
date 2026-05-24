@@ -40,7 +40,11 @@ public final class ChromaWasm {
             RenderResult result = WasmRenderer.render(furniPackage, options);
             return "{\"ok\":true,\"width\":" + result.width
                     + ",\"height\":" + result.height
-                    + ",\"pngBase64\":\"" + Base64Codec.encode(result.png) + "\"}";
+                    + ",\"mime\":\"" + result.mime
+                    + "\",\"isAnimated\":" + result.animated
+                    + ",\"dataBase64\":\"" + Base64Codec.encode(result.data) + "\""
+                    + (result.png ? ",\"pngBase64\":\"" + Base64Codec.encode(result.data) + "\"" : "")
+                    + "}";
         } catch (Throwable ex) {
             return "{\"ok\":false,\"error\":\"" + Json.escape(ex.getMessage() == null ? ex.getClass().getName() : ex.getMessage()) + "\"}";
         }
@@ -334,6 +338,7 @@ public final class ChromaWasm {
         private boolean shadow;
         private boolean icon;
         private boolean background;
+        private boolean gif;
         private int backgroundWidth;
         private int backgroundHeight;
         private byte[] backgroundRgba;
@@ -358,6 +363,7 @@ public final class ChromaWasm {
             options.shadow = Json.readBoolean(json, "shadow", false);
             options.icon = Json.readBoolean(json, "icon", false);
             options.background = Json.readBoolean(json, "background", false) || Json.readBoolean(json, "bg", false);
+            options.gif = Json.readBoolean(json, "gif", false);
             options.backgroundWidth = Json.readInt(json, "backgroundWidth", 0);
             options.backgroundHeight = Json.readInt(json, "backgroundHeight", 0);
             String backgroundRgba = Json.readString(json, "backgroundRgbaBase64", "");
@@ -375,11 +381,17 @@ public final class ChromaWasm {
     private static final class RenderResult {
         private final int width;
         private final int height;
-        private final byte[] png;
+        private final byte[] data;
+        private final String mime;
+        private final boolean animated;
+        private final boolean png;
 
-        private RenderResult(int width, int height, byte[] png) {
+        private RenderResult(int width, int height, byte[] data, String mime, boolean animated, boolean png) {
             this.width = width;
             this.height = height;
+            this.data = data;
+            this.mime = mime;
+            this.animated = animated;
             this.png = png;
         }
     }
@@ -402,16 +414,48 @@ public final class ChromaWasm {
 
             int renderWidth = options.background && options.backgroundRgba != null && options.backgroundWidth > 0 ? options.backgroundWidth : CANVAS_WIDTH;
             int renderHeight = options.background && options.backgroundRgba != null && options.backgroundHeight > 0 ? options.backgroundHeight : CANVAS_HEIGHT;
-            List<RenderAsset> renderAssets = collectWithDirectionFallback(furni.sprite, assetsXml, visualizationXml, images, options, renderWidth, renderHeight);
+            int frameCount = options.gif ? animationFrameCount(visualizationXml, size, options.state) : 1;
+            RenderedFrame[] frames = new RenderedFrame[frameCount];
+            Bounds crop = null;
+            for (int frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+                int[] canvas = renderCanvas(furni.sprite, assetsXml, visualizationXml, images, options, renderWidth, renderHeight, frameIndex);
+                frames[frameIndex] = new RenderedFrame(canvas);
+                if (options.crop) {
+                    Bounds frameCrop = cropBounds(canvas, renderWidth, renderHeight, trimColors(options));
+                    crop = crop == null ? frameCrop : crop.union(frameCrop);
+                }
+            }
+            if (crop == null) {
+                crop = new Bounds(0, 0, renderWidth, renderHeight);
+            }
+            if (options.gif) {
+                byte[][] rgbaFrames = new byte[frameCount][];
+                for (int i = 0; i < frameCount; i++) {
+                    rgbaFrames[i] = cropRgba(frames[i].canvas, renderWidth, crop);
+                }
+                return new RenderResult(crop.width, crop.height, GifEncoder.encode(crop.width, crop.height, rgbaFrames, 120), "image/gif", frameCount > 1, false);
+            }
+            byte[] rgba = cropRgba(frames[0].canvas, renderWidth, crop);
+            return new RenderResult(crop.width, crop.height, PngEncoder.encode(crop.width, crop.height, rgba), "image/png", false, true);
+        }
+
+        private static int[] renderCanvas(
+                String sprite,
+                XmlNode assetsXml,
+                XmlNode visualizationXml,
+                Map<String, ImageEntry> images,
+                RenderOptions options,
+                int renderWidth,
+                int renderHeight,
+                int animationFrameIndex) throws IOException {
+
+            List<RenderAsset> renderAssets = collectWithDirectionFallback(sprite, assetsXml, visualizationXml, images, options, renderWidth, renderHeight, animationFrameIndex);
             int[] canvas = new int[renderWidth * renderHeight];
             fillCanvas(canvas, renderWidth, renderHeight, options);
             for (int i = 0; i < renderAssets.size(); i++) {
                 drawAsset(canvas, renderWidth, renderHeight, renderAssets.get(i), options);
             }
-
-            Bounds crop = options.crop ? cropBounds(canvas, renderWidth, renderHeight, trimColors(options)) : new Bounds(0, 0, renderWidth, renderHeight);
-            byte[] rgba = cropRgba(canvas, renderWidth, crop);
-            return new RenderResult(crop.width, crop.height, PngEncoder.encode(crop.width, crop.height, rgba));
+            return canvas;
         }
 
         private static String requiredXml(FurniPackage furni, String type) throws IOException {
@@ -452,9 +496,10 @@ public final class ChromaWasm {
                 Map<String, ImageEntry> images,
                 RenderOptions options,
                 int renderWidth,
-                int renderHeight) throws IOException {
+                int renderHeight,
+                int animationFrameIndex) throws IOException {
 
-            List<RenderAsset> preferred = collectRenderAssets(sprite, assetsXml, visualizationXml, images, options, options.direction, renderWidth, renderHeight);
+            List<RenderAsset> preferred = collectRenderAssets(sprite, assetsXml, visualizationXml, images, options, options.direction, renderWidth, renderHeight, animationFrameIndex);
             if (!preferred.isEmpty() || options.icon) {
                 return preferred;
             }
@@ -463,7 +508,7 @@ public final class ChromaWasm {
                 if (directions[i] == options.direction) {
                     continue;
                 }
-                List<RenderAsset> fallback = collectRenderAssets(sprite, assetsXml, visualizationXml, images, options, directions[i], renderWidth, renderHeight);
+                List<RenderAsset> fallback = collectRenderAssets(sprite, assetsXml, visualizationXml, images, options, directions[i], renderWidth, renderHeight, animationFrameIndex);
                 if (!fallback.isEmpty()) {
                     return fallback;
                 }
@@ -479,12 +524,13 @@ public final class ChromaWasm {
                 RenderOptions options,
                 int direction,
                 int renderWidth,
-                int renderHeight) throws IOException {
+                int renderHeight,
+                int animationFrameIndex) throws IOException {
 
             String size = options.small ? "32" : "64";
             Map<Integer, LayerInfo> layers = readLayers(visualizationXml, size, direction);
             Map<Integer, String> colorLayers = readColorLayers(visualizationXml, size, options.color);
-            Map<Integer, Integer> animations = readAnimationFrames(visualizationXml, size, options.state);
+            Map<Integer, Integer> animations = readAnimationFrames(visualizationXml, size, options.state, animationFrameIndex);
             List<RenderAsset> candidates = new ArrayList<>();
             List<XmlNode> assetNodes = assetsXml.descendants("asset");
             for (int i = 0; i < assetNodes.size(); i++) {
@@ -629,7 +675,7 @@ public final class ChromaWasm {
             return result;
         }
 
-        private static Map<Integer, Integer> readAnimationFrames(XmlNode doc, String size, int state) {
+        private static Map<Integer, Integer> readAnimationFrames(XmlNode doc, String size, int state, int animationFrameIndex) {
             Map<Integer, Integer> result = new LinkedHashMap<>();
             XmlNode visualization = visualization(doc, size);
             if (visualization == null) {
@@ -647,13 +693,35 @@ public final class ChromaWasm {
                     XmlNode layer = layers.get(j);
                     int id = parseInt(layer.attr("id"), -1);
                     XmlNode frameSequence = firstChild(layer, "frameSequence");
-                    XmlNode frame = firstChild(frameSequence, "frame");
-                    if (id >= 0 && frame != null) {
+                    List<XmlNode> frames = children(frameSequence, "frame");
+                    if (id >= 0 && !frames.isEmpty()) {
+                        XmlNode frame = frames.get(Math.floorMod(animationFrameIndex, frames.size()));
                         result.put(id, parseInt(frame.attr("id"), 0));
                     }
                 }
             }
             return result;
+        }
+
+        private static int animationFrameCount(XmlNode doc, String size, int state) {
+            int count = 1;
+            XmlNode visualization = visualization(doc, size);
+            if (visualization == null) {
+                return count;
+            }
+            List<XmlNode> animations = children(firstChild(visualization, "animations"), "animation");
+            for (int i = 0; i < animations.size(); i++) {
+                XmlNode animation = animations.get(i);
+                if (!String.valueOf(state).equals(animation.attr("id"))) {
+                    continue;
+                }
+                List<XmlNode> layers = children(animation, "animationLayer");
+                for (int j = 0; j < layers.size(); j++) {
+                    XmlNode frameSequence = firstChild(layers.get(j), "frameSequence");
+                    count = Math.max(count, children(frameSequence, "frame").size());
+                }
+            }
+            return count;
         }
 
         private static int readMaxState(XmlNode doc, String size, int direction) {
@@ -1200,6 +1268,22 @@ public final class ChromaWasm {
             this.width = width;
             this.height = height;
         }
+
+        private Bounds union(Bounds other) {
+            int left = Math.min(x, other.x);
+            int top = Math.min(y, other.y);
+            int right = Math.max(x + width, other.x + other.width);
+            int bottom = Math.max(y + height, other.y + other.height);
+            return new Bounds(left, top, right - left, bottom - top);
+        }
+    }
+
+    private static final class RenderedFrame {
+        private final int[] canvas;
+
+        private RenderedFrame(int[] canvas) {
+            this.canvas = canvas;
+        }
     }
 
     private static final class XmlNode {
@@ -1359,6 +1443,215 @@ public final class ChromaWasm {
 
         private static boolean isSpace(char c) {
             return c == ' ' || c == '\n' || c == '\r' || c == '\t';
+        }
+    }
+
+    private static final class GifEncoder {
+        private static byte[] encode(int width, int height, byte[][] frames, int delayMs) {
+            Palette palette = Palette.fromFrames(frames);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            writeAscii(out, "GIF89a");
+            writeShort(out, width);
+            writeShort(out, height);
+            out.write(0xf7);
+            out.write(0);
+            out.write(0);
+            for (int i = 0; i < 256; i++) {
+                int color = palette.colors[i];
+                out.write((color >>> 16) & 255);
+                out.write((color >>> 8) & 255);
+                out.write(color & 255);
+            }
+            out.write(0x21);
+            out.write(0xff);
+            out.write(11);
+            writeAscii(out, "NETSCAPE2.0");
+            out.write(3);
+            out.write(1);
+            writeShort(out, 0);
+            out.write(0);
+
+            for (int i = 0; i < frames.length; i++) {
+                byte[] indexed = palette.index(frames[i]);
+                out.write(0x21);
+                out.write(0xf9);
+                out.write(4);
+                out.write(1);
+                writeShort(out, Math.max(1, delayMs / 10));
+                out.write(0);
+                out.write(0);
+                out.write(0x2c);
+                writeShort(out, 0);
+                writeShort(out, 0);
+                writeShort(out, width);
+                writeShort(out, height);
+                out.write(0);
+                out.write(8);
+                writeSubBlocks(out, lzwEncode(indexed));
+            }
+            out.write(0x3b);
+            return out.toByteArray();
+        }
+
+        private static byte[] lzwEncode(byte[] indexed) {
+            ByteArrayOutputStream bits = new ByteArrayOutputStream();
+            BitWriter writer = new BitWriter(bits);
+            int clear = 256;
+            int end = 257;
+            int nextCode = 258;
+            int codeSize = 9;
+            Map<String, Integer> table = initialTable();
+            writer.write(clear, codeSize);
+            String prefix = key(indexed[0] & 255);
+            for (int i = 1; i < indexed.length; i++) {
+                String current = key(indexed[i] & 255);
+                String combined = prefix + "," + current;
+                if (table.containsKey(combined)) {
+                    prefix = combined;
+                } else {
+                    writer.write(table.get(prefix), codeSize);
+                    if (nextCode < 4096) {
+                        table.put(combined, nextCode++);
+                        if (nextCode == (1 << codeSize) && codeSize < 12) {
+                            codeSize++;
+                        }
+                    } else {
+                        writer.write(clear, codeSize);
+                        table = initialTable();
+                        nextCode = 258;
+                        codeSize = 9;
+                    }
+                    prefix = current;
+                }
+            }
+            writer.write(table.get(prefix), codeSize);
+            writer.write(end, codeSize);
+            writer.flush();
+            return bits.toByteArray();
+        }
+
+        private static Map<String, Integer> initialTable() {
+            Map<String, Integer> table = new LinkedHashMap<>();
+            for (int i = 0; i < 256; i++) {
+                table.put(key(i), i);
+            }
+            return table;
+        }
+
+        private static String key(int value) {
+            return String.valueOf((char) value);
+        }
+
+        private static void writeSubBlocks(ByteArrayOutputStream out, byte[] bytes) {
+            for (int i = 0; i < bytes.length; i += 255) {
+                int length = Math.min(255, bytes.length - i);
+                out.write(length);
+                out.write(bytes, i, length);
+            }
+            out.write(0);
+        }
+
+        private static void writeShort(ByteArrayOutputStream out, int value) {
+            out.write(value & 255);
+            out.write((value >>> 8) & 255);
+        }
+
+        private static void writeAscii(ByteArrayOutputStream out, String value) {
+            for (int i = 0; i < value.length(); i++) {
+                out.write(value.charAt(i));
+            }
+        }
+
+        private static final class BitWriter {
+            private final ByteArrayOutputStream out;
+            private int buffer;
+            private int bits;
+
+            private BitWriter(ByteArrayOutputStream out) {
+                this.out = out;
+            }
+
+            private void write(int code, int size) {
+                buffer |= code << bits;
+                bits += size;
+                while (bits >= 8) {
+                    out.write(buffer & 255);
+                    buffer >>>= 8;
+                    bits -= 8;
+                }
+            }
+
+            private void flush() {
+                if (bits > 0) {
+                    out.write(buffer & 255);
+                }
+            }
+        }
+
+        private static final class Palette {
+            private final int[] colors = new int[256];
+            private final Map<Integer, Integer> exact = new LinkedHashMap<>();
+            private boolean exactOnly = true;
+
+            private static Palette fromFrames(byte[][] frames) {
+                Palette palette = new Palette();
+                palette.colors[0] = 0;
+                palette.exact.put(0, 0);
+                int next = 1;
+                for (int f = 0; f < frames.length; f++) {
+                    byte[] frame = frames[f];
+                    for (int i = 0; i < frame.length; i += 4) {
+                        int a = frame[i + 3] & 255;
+                        int color = a == 0 ? 0 : ((frame[i] & 255) << 16) | ((frame[i + 1] & 255) << 8) | (frame[i + 2] & 255);
+                        if (!palette.exact.containsKey(color)) {
+                            if (next < 256) {
+                                palette.exact.put(color, next);
+                                palette.colors[next++] = color;
+                            } else {
+                                palette.exactOnly = false;
+                                return quantizedPalette();
+                            }
+                        }
+                    }
+                }
+                return palette;
+            }
+
+            private static Palette quantizedPalette() {
+                Palette palette = new Palette();
+                palette.exactOnly = false;
+                palette.colors[0] = 0;
+                for (int i = 1; i < 256; i++) {
+                    int value = i - 1;
+                    int r = ((value >>> 5) & 7) * 255 / 7;
+                    int g = ((value >>> 2) & 7) * 255 / 7;
+                    int b = (value & 3) * 255 / 3;
+                    palette.colors[i] = (r << 16) | (g << 8) | b;
+                }
+                return palette;
+            }
+
+            private byte[] index(byte[] rgba) {
+                byte[] result = new byte[rgba.length / 4];
+                for (int i = 0, p = 0; i < rgba.length; i += 4, p++) {
+                    int a = rgba[i + 3] & 255;
+                    if (a == 0) {
+                        result[p] = 0;
+                    } else {
+                        int color = ((rgba[i] & 255) << 16) | ((rgba[i + 1] & 255) << 8) | (rgba[i + 2] & 255);
+                        Integer exactIndex = exactOnly ? exact.get(color) : null;
+                        result[p] = (byte) (exactIndex != null ? exactIndex : quantizedIndex(color));
+                    }
+                }
+                return result;
+            }
+
+            private int quantizedIndex(int color) {
+                int r = (color >>> 16) & 255;
+                int g = (color >>> 8) & 255;
+                int b = color & 255;
+                return 1 + ((r * 7 / 255) << 5) + ((g * 7 / 255) << 2) + (b * 3 / 255);
+            }
         }
     }
 

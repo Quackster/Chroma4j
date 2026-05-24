@@ -1,4 +1,4 @@
-import { loadChroma4j } from "./chroma4j.js?v=wasm-render-20260524";
+import { loadChroma4j } from "./chroma4j.js?v=wasm-gif-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),
@@ -10,6 +10,7 @@ const controls = {
   shadow: document.getElementById("shadow"),
   crop: document.getElementById("crop"),
   icon: document.getElementById("icon"),
+  gif: document.getElementById("gif"),
   render: document.getElementById("render"),
   download: document.getElementById("download"),
   status: document.getElementById("status"),
@@ -34,10 +35,11 @@ controls.render.addEventListener("click", async () => {
       small: controls.small.checked,
       shadow: controls.shadow.checked,
       crop: controls.crop.checked,
-      icon: controls.icon.checked
+      icon: controls.icon.checked,
+      gif: controls.gif.checked
     }, controls.preview);
     controls.download.disabled = false;
-    controls.status.textContent = `${lastResult.width} x ${lastResult.height} PNG rendered entirely in the browser.`;
+    controls.status.textContent = `${lastResult.width} x ${lastResult.height} ${lastResult.mime} rendered entirely in the browser.`;
   } catch (error) {
     controls.status.textContent = error.message;
   } finally {
@@ -58,7 +60,7 @@ controls.download.addEventListener("click", async () => {
   const blob = await lastResult.blob();
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = "furni.png";
+  link.download = lastResult.mime === "image/gif" ? "furni.gif" : "furni.png";
   link.click();
   URL.revokeObjectURL(link.href);
 });

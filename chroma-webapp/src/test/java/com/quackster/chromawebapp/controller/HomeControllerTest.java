@@ -55,7 +55,8 @@ class HomeControllerTest {
                 "0",
                 "true",
                 "ABCDEF",
-                "TRUE"
+                "TRUE",
+                null
         );
 
         assertEquals("rare_dragonlamp", options.sprite());
@@ -68,7 +69,7 @@ class HomeControllerTest {
         assertEquals("ABCDEF", options.renderCanvasColour());
         assertFalse(options.cropImage());
         assertFalse(options.renderIcon());
-        assertEquals("rare_dragonlampTrue0415TrueTrueABCDEFFalseFalse", options.cacheKey());
+        assertEquals("rare_dragonlampTrue0415TrueTrueABCDEFFalseFalseFalse", options.cacheKey());
     }
 
     @Test
@@ -101,7 +102,8 @@ class HomeControllerTest {
                 "1",
                 "true",
                 "336699",
-                "false"
+                "false",
+                null
         );
         byte[] pngBytes = new byte[] {(byte) 0x89, 0x50, 0x4e, 0x47};
         Path cachePath = Paths.get("furni_export", CACHE_HIT_SPRITE, "export", options.cacheHash() + ".png");
@@ -122,7 +124,7 @@ class HomeControllerTest {
                 "true",
                 "336699",
                 "false",
-                "true"
+                null
         );
 
         assertNotNull(response);
