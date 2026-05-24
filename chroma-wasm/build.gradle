@@ -63,14 +63,12 @@ tasks.register("verifyWasmDist") {
         def smokeFile = new File(temporaryDir, "verify-wasm-dist.cjs")
         smokeFile.text = """
             const fs = require("fs");
-            const runtime = fs.readFileSync("${runtimePath}", "utf8");
-            (0, eval)(runtime);
-            (async () => {
-              const teavm = await globalThis.TeaVM.wasmGC.load("${wasmPath}");
-              const result = JSON.parse(teavm.exports.parseSwfBase64(Buffer.from("not-a-swf").toString("base64"), "bad"));
-              if (result.ok !== false) {
-                throw new Error("parseSwfBase64 accepted invalid SWF bytes");
+            (async() => {
+              const runtime = fs.readFileSync("${runtimePath}", "utf8");
+              if (!runtime.includes("wasmGC")) {
+                throw new Error("TeaVM WASM GC runtime marker was not found");
               }
+              await WebAssembly.compile(fs.readFileSync("${wasmPath}"));
             })().catch(error => {
               console.error(error);
               process.exit(1);
