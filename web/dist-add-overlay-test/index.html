@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chroma ADD Overlay Test</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./main.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <section class="controls" aria-label="ADD overlay controls">
+        <h1>ADD Overlay Test</h1>
+        <label>
+          <span>SWF URL</span>
+          <input id="swf-url" type="url" value="https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf">
+        </label>
+        <div class="grid">
+          <label>
+            <span>State</span>
+            <input id="state" type="number" min="0" max="100" value="1">
+          </label>
+          <label>
+            <span>Direction</span>
+            <select id="direction">
+              <option>0</option>
+              <option>2</option>
+              <option selected>4</option>
+              <option>6</option>
+            </select>
+          </label>
+          <label>
+            <span>Format</span>
+            <select id="format">
+              <option value="png">PNG</option>
+              <option value="gif" selected>GIF</option>
+              <option value="apng">APNG</option>
+            </select>
+          </label>
+          <label>
+            <span>Glow Mode</span>
+            <select id="add-mode">
+              <option value="overlay">Overlay glow</option>
+              <option value="baked">Baked glow</option>
+            </select>
+          </label>
+          <label>
+            <span>Custom Background URL</span>
+            <input id="background-url" type="url" value="https://wallpapercave.com/wp/wp9718841.png" placeholder="https://example.com/background.png">
+          </label>
+        </div>
+        <button id="render" type="button">Render</button>
+        <p id="status" role="status"></p>
+      </section>
+
+      <section class="samples" aria-label="ADD overlay samples">
+        <article class="sample checker">
+          <h2>Checker</h2>
+          <div class="stage" data-stage="checker"></div>
+        </article>
+        <article class="sample room">
+          <h2>bg.png</h2>
+          <div class="stage bg-image" data-stage="room"></div>
+        </article>
+        <article class="sample solid">
+          <h2>Solid</h2>
+          <div class="stage solid-bg" data-stage="solid"></div>
+        </article>
+        <article class="sample custom">
+          <h2>Custom URL</h2>
+          <div class="stage custom-bg" data-stage="custom"></div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

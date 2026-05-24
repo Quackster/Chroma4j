@@ -37,6 +37,8 @@ The static deployment directory contains:
 - `web/dist/styles.css`
 - `web/dist/bg.png`
 
+The ADD overlay test page lives in `web/dist-add-overlay-test` and imports the WASM release from `web/dist`.
+
 `web/dist` is generated/served output and is ignored by Git.
 
 ## Run The Static Demo
@@ -54,6 +56,16 @@ http://localhost:5177
 ```
 
 Paste a CORS-enabled furni SWF URL, choose render options, and click `Render`. The page fetches SWF bytes in the browser, passes them to the TeaVM parser, and exports PNG by default, animated GIF when `gif: true` is selected, or animated PNG when `apng: true` is selected.
+
+To try the ADD overlay demonstration, serve the `web` directory and open:
+
+```powershell
+python -m http.server 5178 --directory web
+```
+
+```text
+http://localhost:5178/dist-add-overlay-test/
+```
 
 ## JavaScript API
 
@@ -163,6 +175,7 @@ Supported first-release options mirror the server endpoint where applicable:
 - `bg` / `background`
 - `shadow`
 - `canvas`: a hex colour, `transparent`, or an HTTP/HTTPS image URL in the browser build. URL backgrounds must allow CORS pixel reads.
+- `addMode`: `"overlay"` by default. `"overlay"` uses Overlay glow, where ADD ink is returned as a separate layer and composited over the visible page background. `"baked"` uses Baked glow, where the renderer blends ADD into the output image. `separateAdd` is still accepted as a low-level alias.
 - `icon`
 - `gif`: `false` by default for PNG output; `true` returns GIF bytes when the selected state has animation frames.
 - `apng`: `false` by default for PNG output; `true` returns APNG bytes. APNG is served as PNG-compatible `image/png`.

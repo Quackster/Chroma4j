@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Chroma WASM</title>
-    <link rel="stylesheet" href="./styles.css?v=wasm-canvas-url-20260524">
-    <script type="module" src="./main.js?v=wasm-canvas-url-20260524"></script>
+    <link rel="stylesheet" href="./styles.css?v=wasm-glow-mode-20260524">
+    <script type="module" src="./main.js?v=wasm-glow-mode-20260524"></script>
   </head>
   <body>
     <main class="app">
@@ -16,7 +16,7 @@
         </div>
         <label class="wide">
           <span>SWF URL</span>
-          <input id="swf-url" type="url" placeholder="https://example.com/hof_furni/chair.swf" autocomplete="off">
+          <input id="swf-url" type="url" value="https://images.classichabbo.com/dcr/hof_furni/rare_dragonlamp.swf" placeholder="https://example.com/hof_furni/chair.swf" autocomplete="off">
         </label>
         <div class="grid">
           <label>
@@ -52,6 +52,13 @@
               <option value="apng">APNG</option>
             </select>
           </label>
+          <label>
+            <span>Glow Mode</span>
+            <select id="add-mode">
+              <option value="overlay">Overlay glow</option>
+              <option value="baked">Baked glow</option>
+            </select>
+          </label>
         </div>
         <div class="toggles">
           <label><input id="small" type="checkbox"> Small</label>
@@ -69,7 +76,10 @@
       </section>
       <section class="preview" aria-label="Furniture preview">
         <canvas id="preview" width="1" height="1"></canvas>
-        <img id="preview-gif" alt="" hidden>
+        <div id="preview-stack" class="preview-stack" hidden>
+          <img id="preview-base" alt="">
+          <img id="preview-add" alt="">
+        </div>
       </section>
     </main>
   </body>

@@ -1,5 +1,5 @@
 let teavmInstancePromise;
-const BUILD_VERSION = "wasm-canvas-url-20260524";
+const BUILD_VERSION = "wasm-glow-mode-20260524";
 
 export async function loadChroma4j(options = {}) {
   await ensureTeaVm(options.basePath || ".");
@@ -50,8 +50,10 @@ async function renderFromBytes(bytes, options = {}, target) {
   const format = rendered.format || (mime === "image/gif" ? "gif" : "png");
   const dataBase64 = rendered.dataBase64 || rendered.pngBase64;
   const outputBytes = base64ToBytes(dataBase64);
+  const addBase64 = rendered.addBase64 || "";
+  const addBytes = addBase64 ? base64ToBytes(addBase64) : undefined;
   const canvas = target || document.createElement("canvas");
-  await paintImage(canvas, outputBytes, mime, format, rendered.width, rendered.height);
+  await paintImage(canvas, outputBytes, mime, format, rendered.width, rendered.height, addBytes);
   return {
     canvas,
     width: rendered.width,
@@ -64,30 +66,57 @@ async function renderFromBytes(bytes, options = {}, target) {
     backgroundUrl: rendered.backgroundDeferred ? normalized.backgroundUrl : "",
     mime,
     format,
+    addMode: normalized.addMode,
+    additive: Boolean(addBase64),
     isAnimated: Boolean(rendered.isAnimated),
-    blob: () => Promise.resolve(new Blob([outputBytes], { type: mime })),
-    dataUrl: () => Promise.resolve(`data:${mime};base64,${dataBase64}`)
+    blob: () => format === "png" && addBytes
+      ? canvasBlob(canvas, mime)
+      : Promise.resolve(new Blob([outputBytes], { type: mime })),
+    dataUrl: () => Promise.resolve(format === "png" && addBytes ? canvas.toDataURL(mime) : `data:${mime};base64,${dataBase64}`),
+    baseDataUrl: () => Promise.resolve(`data:${mime};base64,${dataBase64}`),
+    addDataUrl: () => Promise.resolve(addBase64 ? `data:${mime};base64,${addBase64}` : ""),
+    addBlob: () => Promise.resolve(addBytes ? new Blob([addBytes], { type: mime }) : undefined)
   };
 }
 
-async function paintImage(canvas, bytes, mime, format, width, height) {
+async function paintImage(canvas, bytes, mime, format, width, height, addBytes) {
   canvas.width = width;
   canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, width, height);
   if (mime === "image/gif" || format === "apng") {
-    const image = new Image();
-    image.src = `data:${mime};base64,${bytesToBase64(bytes)}`;
-    await image.decode();
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, width, height);
-    ctx.drawImage(image, 0, 0);
+    await drawImageBytes(ctx, bytes, mime, width, height);
+    if (addBytes) {
+      ctx.globalCompositeOperation = "lighter";
+      await drawImageBytes(ctx, addBytes, mime, width, height);
+      ctx.globalCompositeOperation = "source-over";
+    }
     return;
   }
   const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
-  const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, width, height);
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close();
+  if (addBytes) {
+    const addBitmap = await createImageBitmap(new Blob([addBytes], { type: mime }));
+    ctx.globalCompositeOperation = "lighter";
+    ctx.drawImage(addBitmap, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
+    addBitmap.close();
+  }
+}
+
+async function drawImageBytes(ctx, bytes, mime, width, height) {
+  const image = new Image();
+  image.src = `data:${mime};base64,${bytesToBase64(bytes)}`;
+  await image.decode();
+  ctx.drawImage(image, 0, 0, width, height);
+}
+
+function canvasBlob(canvas, mime) {
+  return new Promise(resolve => {
+    canvas.toBlob(blob => resolve(blob), mime);
+  });
 }
 
 async function normalizeOptions(options) {
@@ -101,6 +130,7 @@ async function normalizeOptions(options) {
   const gif = !apng && (optionBoolean(options.gif) || requestedFormat === "gif");
   const rawCanvas = options.canvas === undefined ? "transparent" : String(options.canvas).trim();
   const canvasBackgroundUrl = httpUrl(rawCanvas) ? rawCanvas : "";
+  const addMode = normalizeAddMode(options);
   const normalized = {
     sprite: options.sprite || "",
     small: optionBoolean(options.small) || optionBoolean(options.s),
@@ -115,6 +145,8 @@ async function normalizeOptions(options) {
     gif,
     apng,
     format: apng ? "apng" : (gif ? "gif" : "png"),
+    addMode,
+    separateAdd: addMode === "overlay",
     loop: options.loop === undefined ? true : optionBoolean(options.loop)
   };
   if (canvasBackgroundUrl || normalized.background) {
@@ -189,6 +221,21 @@ function optionBoolean(value) {
 function backgroundBoolean(value) {
   if (typeof value === "string" && value.toLowerCase() === "false") return false;
   return optionBoolean(value);
+}
+
+function normalizeAddMode(options) {
+  const rawMode = options.addMode === undefined ? options.glowMode : options.addMode;
+  const mode = String(rawMode || "").toLowerCase();
+  if (mode === "baked" || mode === "built-in" || mode === "builtin" || mode === "inbuilt") {
+    return "baked";
+  }
+  if (mode === "overlay" || mode === "layered" || mode === "superimposed") {
+    return "overlay";
+  }
+  if (options.separateAdd !== undefined) {
+    return optionBoolean(options.separateAdd) ? "overlay" : "baked";
+  }
+  return "overlay";
 }
 
 function httpUrl(value) {

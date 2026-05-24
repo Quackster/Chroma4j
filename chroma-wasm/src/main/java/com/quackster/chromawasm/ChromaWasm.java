@@ -50,6 +50,7 @@ public final class ChromaWasm {
                     + ",\"mime\":\"" + result.mime
                     + "\",\"isAnimated\":" + result.animated
                     + ",\"dataBase64\":\"" + Base64Codec.encode(result.data) + "\""
+                    + (result.addData == null ? "" : ",\"addBase64\":\"" + Base64Codec.encode(result.addData) + "\"")
                     + (result.png ? ",\"pngBase64\":\"" + Base64Codec.encode(result.data) + "\"" : "")
                     + "}";
         } catch (Throwable ex) {
@@ -348,6 +349,7 @@ public final class ChromaWasm {
         private boolean gif;
         private boolean apng;
         private String format = "";
+        private boolean separateAdd;
         private boolean loop = true;
         private int backgroundWidth;
         private int backgroundHeight;
@@ -377,6 +379,7 @@ public final class ChromaWasm {
             options.format = Json.readString(json, "format", "").toLowerCase();
             options.apng = Json.readBoolean(json, "apng", false) || "apng".equals(options.format);
             options.gif = !options.apng && (Json.readBoolean(json, "gif", false) || "gif".equals(options.format));
+            options.separateAdd = Json.readBoolean(json, "separateAdd", false);
             options.loop = Json.hasKey(json, "loop") ? Json.readBoolean(json, "loop", true) : true;
             options.backgroundWidth = Json.readInt(json, "backgroundWidth", 0);
             options.backgroundHeight = Json.readInt(json, "backgroundHeight", 0);
@@ -401,6 +404,7 @@ public final class ChromaWasm {
         private final int backgroundHeight;
         private final boolean backgroundDeferred;
         private final byte[] data;
+        private final byte[] addData;
         private final String mime;
         private final String format;
         private final boolean animated;
@@ -415,6 +419,7 @@ public final class ChromaWasm {
                 int backgroundHeight,
                 boolean backgroundDeferred,
                 byte[] data,
+                byte[] addData,
                 String mime,
                 String format,
                 boolean animated,
@@ -427,6 +432,7 @@ public final class ChromaWasm {
             this.backgroundHeight = backgroundHeight;
             this.backgroundDeferred = backgroundDeferred;
             this.data = data;
+            this.addData = addData;
             this.mime = mime;
             this.format = format;
             this.animated = animated;
@@ -458,11 +464,13 @@ public final class ChromaWasm {
             RenderedFrame[] frames = new RenderedFrame[frameCount];
             Bounds crop = null;
             for (int frameIndex = 0; frameIndex < frameCount; frameIndex++) {
-                int[] canvas = renderCanvas(furni.sprite, assetsXml, visualizationXml, images, options, renderWidth, renderHeight, frameIndex);
-                frames[frameIndex] = new RenderedFrame(canvas);
+                RenderedFrame frame = renderFrame(furni.sprite, assetsXml, visualizationXml, images, options, renderWidth, renderHeight, frameIndex);
+                frames[frameIndex] = frame;
                 if (options.crop) {
-                    Bounds frameCrop = cropBounds(canvas, renderWidth, renderHeight, trimColors(options));
-                    crop = crop == null ? frameCrop : crop.union(frameCrop);
+                    Bounds frameCrop = frameCropBounds(frame, renderWidth, renderHeight, trimColors(options));
+                    if (frameCrop != null) {
+                        crop = crop == null ? frameCrop : crop.union(frameCrop);
+                    }
                 }
             }
             if (crop == null) {
@@ -470,8 +478,12 @@ public final class ChromaWasm {
             }
             if (animatedOutput) {
                 byte[][] rgbaFrames = new byte[frameCount][];
+                byte[][] addRgbaFrames = hasAddOverlay(frames) ? new byte[frameCount][] : null;
                 for (int i = 0; i < frameCount; i++) {
                     rgbaFrames[i] = cropRgba(frames[i].canvas, renderWidth, crop);
+                    if (addRgbaFrames != null) {
+                        addRgbaFrames[i] = cropRgba(frames[i].addCanvas, renderWidth, crop);
+                    }
                 }
                 if (options.apng) {
                     return new RenderResult(
@@ -483,6 +495,7 @@ public final class ChromaWasm {
                             renderHeight,
                             false,
                             ApngEncoder.encode(crop.width, crop.height, rgbaFrames, 120, options.loop),
+                            addRgbaFrames == null ? null : ApngEncoder.encode(crop.width, crop.height, addRgbaFrames, 120, options.loop),
                             "image/png",
                             "apng",
                             frameCount > 1,
@@ -497,12 +510,14 @@ public final class ChromaWasm {
                         renderHeight,
                         options.deferBackground,
                         GifEncoder.encode(crop.width, crop.height, rgbaFrames, 120, options.loop),
+                        addRgbaFrames == null ? null : GifEncoder.encode(crop.width, crop.height, addRgbaFrames, 120, options.loop),
                         "image/gif",
                         "gif",
                         frameCount > 1,
                         false);
             }
             byte[] rgba = cropRgba(frames[0].canvas, renderWidth, crop);
+            byte[] addRgba = hasAddOverlay(frames) ? cropRgba(frames[0].addCanvas, renderWidth, crop) : null;
             return new RenderResult(
                     crop.width,
                     crop.height,
@@ -512,13 +527,14 @@ public final class ChromaWasm {
                     renderHeight,
                     false,
                     PngEncoder.encode(crop.width, crop.height, rgba),
+                    addRgba == null ? null : PngEncoder.encode(crop.width, crop.height, addRgba),
                     "image/png",
                     "png",
                     false,
                     true);
         }
 
-        private static int[] renderCanvas(
+        private static RenderedFrame renderFrame(
                 String sprite,
                 XmlNode assetsXml,
                 XmlNode visualizationXml,
@@ -530,11 +546,12 @@ public final class ChromaWasm {
 
             List<RenderAsset> renderAssets = collectWithDirectionFallback(sprite, assetsXml, visualizationXml, images, options, renderWidth, renderHeight, animationFrameIndex);
             int[] canvas = new int[renderWidth * renderHeight];
+            int[] addCanvas = options.separateAdd ? new int[renderWidth * renderHeight] : null;
             fillCanvas(canvas, renderWidth, renderHeight, options);
             for (int i = 0; i < renderAssets.size(); i++) {
-                drawAsset(canvas, renderWidth, renderHeight, renderAssets.get(i), options);
+                drawAsset(canvas, addCanvas, renderWidth, renderHeight, renderAssets.get(i), options);
             }
-            return canvas;
+            return new RenderedFrame(canvas, addCanvas);
         }
 
         private static String requiredXml(FurniPackage furni, String type) throws IOException {
@@ -977,7 +994,7 @@ public final class ChromaWasm {
             return parsed;
         }
 
-        private static void drawAsset(int[] canvas, int canvasWidth, int canvasHeight, RenderAsset asset, RenderOptions options) {
+        private static void drawAsset(int[] canvas, int[] addCanvas, int canvasWidth, int canvasHeight, RenderAsset asset, RenderOptions options) {
             int width = asset.image.width;
             int height = asset.image.height;
             int x = canvasWidth - asset.x;
@@ -996,7 +1013,11 @@ public final class ChromaWasm {
                 source = applyOpacity(source, 0.2);
             }
             if ("ADD".equals(asset.ink) || "33".equals(asset.ink)) {
-                drawAdd(canvas, canvasWidth, canvasHeight, source, width, height, x, y, options);
+                if (addCanvas == null) {
+                    drawAdd(canvas, canvasWidth, canvasHeight, source, width, height, x, y, options);
+                } else {
+                    drawAddOverlay(addCanvas, canvasWidth, canvasHeight, source, width, height, x, y);
+                }
             } else {
                 drawNormal(canvas, canvasWidth, canvasHeight, source, width, height, x, y);
             }
@@ -1089,6 +1110,40 @@ public final class ChromaWasm {
                         g = blendAddChannel(fgGreen, fgAlpha, green(bgPixel), bgAlpha, outAlpha);
                         b = blendAddChannel(fgBlue, fgAlpha, blue(bgPixel), bgAlpha, outAlpha);
                     }
+                    canvas[canvasIndex] = argb(outAlpha, r, g, b);
+                }
+            }
+        }
+
+        private static void drawAddOverlay(int[] canvas, int canvasWidth, int canvasHeight, byte[] source, int sourceWidth, int sourceHeight, int x, int y) {
+            int startX = Math.max(0, x);
+            int startY = Math.max(0, y);
+            int endX = Math.min(canvasWidth, x + sourceWidth);
+            int endY = Math.min(canvasHeight, y + sourceHeight);
+            for (int cy = startY; cy < endY; cy++) {
+                for (int cx = startX; cx < endX; cx++) {
+                    int sourceIndex = ((cy - y) * sourceWidth + (cx - x)) * 4;
+                    int fgAlpha = source[sourceIndex + 3] & 255;
+                    if (fgAlpha == 0) {
+                        continue;
+                    }
+                    int fgRed = source[sourceIndex] & 255;
+                    int fgGreen = source[sourceIndex + 1] & 255;
+                    int fgBlue = source[sourceIndex + 2] & 255;
+                    if (isAddNoOp(fgRed, fgGreen, fgBlue)) {
+                        continue;
+                    }
+                    int canvasIndex = cy * canvasWidth + cx;
+                    int bgPixel = canvas[canvasIndex];
+                    int bgAlpha = alpha(bgPixel);
+                    if (bgAlpha == 0) {
+                        canvas[canvasIndex] = argb(fgAlpha, fgRed, fgGreen, fgBlue);
+                        continue;
+                    }
+                    int outAlpha = blendNormalAlpha(fgAlpha, bgAlpha);
+                    int r = blendAddChannel(fgRed, fgAlpha, red(bgPixel), bgAlpha, outAlpha);
+                    int g = blendAddChannel(fgGreen, fgAlpha, green(bgPixel), bgAlpha, outAlpha);
+                    int b = blendAddChannel(fgBlue, fgAlpha, blue(bgPixel), bgAlpha, outAlpha);
                     canvas[canvasIndex] = argb(outAlpha, r, g, b);
                 }
             }
@@ -1208,6 +1263,37 @@ public final class ChromaWasm {
                     canvas[i] = pixel;
                 }
             }
+        }
+
+        private static Bounds frameCropBounds(RenderedFrame frame, int width, int height, int[] trimColors) {
+            Bounds result = hasNonTrimPixel(frame.canvas, trimColors) ? cropBounds(frame.canvas, width, height, trimColors) : null;
+            if (frame.addCanvas != null) {
+                int[] transparent = new int[] { parseCanvasColor("transparent") };
+                if (hasNonTrimPixel(frame.addCanvas, transparent)) {
+                    Bounds addBounds = cropBounds(frame.addCanvas, width, height, transparent);
+                    result = result == null ? addBounds : result.union(addBounds);
+                }
+            }
+            return result;
+        }
+
+        private static boolean hasAddOverlay(RenderedFrame[] frames) {
+            int[] transparent = new int[] { parseCanvasColor("transparent") };
+            for (int i = 0; i < frames.length; i++) {
+                if (frames[i].addCanvas != null && hasNonTrimPixel(frames[i].addCanvas, transparent)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static boolean hasNonTrimPixel(int[] canvas, int[] trimColors) {
+            for (int i = 0; i < canvas.length; i++) {
+                if (!sameAny(canvas[i], trimColors)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static Bounds cropBounds(int[] canvas, int width, int height, int[] trimColors) {
@@ -1577,9 +1663,11 @@ public final class ChromaWasm {
 
     private static final class RenderedFrame {
         private final int[] canvas;
+        private final int[] addCanvas;
 
-        private RenderedFrame(int[] canvas) {
+        private RenderedFrame(int[] canvas, int[] addCanvas) {
             this.canvas = canvas;
+            this.addCanvas = addCanvas;
         }
     }
 

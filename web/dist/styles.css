@@ -132,12 +132,36 @@ button:disabled {
 }
 
 canvas,
-#preview-gif {
+.preview-stack,
+.preview-stack img {
   max-width: 100%;
   image-rendering: auto;
 }
 
-#preview-gif.with-background {
+.preview-stack {
+  display: grid;
+  background-repeat: no-repeat;
+}
+
+.preview-stack[hidden] {
+  display: none;
+}
+
+.preview-stack img {
+  grid-area: 1 / 1;
+}
+
+#preview-add {
+  mix-blend-mode: plus-lighter;
+}
+
+@supports not (mix-blend-mode: plus-lighter) {
+  #preview-add {
+    mix-blend-mode: screen;
+  }
+}
+
+.preview-stack.with-background {
   background-repeat: no-repeat;
 }
 
