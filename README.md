@@ -2,13 +2,6 @@
 
 Chroma4j renders Habbo furni SWFs. The repository contains the original JVM renderer and a TeaVM/WebAssembly browser deployment that renders from SWF bytes entirely client-side.
 
-## Modules
-
-- `chroma-lib`: core JVM renderer used by the Spring webapp. It uses JPEXS, AWT/ImageIO, and filesystem extraction.
-- `chroma-webapp`: Spring Boot server endpoint that renders local `swfs/hof_furni/*.swf` files.
-- `chroma-wasm`: TeaVM WebAssembly GC build for browser-only SWF parsing.
-- `web/dist`: static browser deployment and demo page.
-
 ## Requirements
 
 - JDK 17 or newer.
@@ -32,13 +25,15 @@ This compiles the TeaVM module and writes:
 - `web/dist/wasm-gc/chroma-wasm.wasm`
 - `web/dist/wasm-gc/chroma-wasm.wasm-runtime.js`
 
-The checked-in static deployment files are:
+The static deployment directory contains:
 
 - `web/dist/index.html`
 - `web/dist/main.js`
 - `web/dist/chroma4j.js`
 - `web/dist/styles.css`
 - `web/dist/bg.png`
+
+`web/dist` is generated/served output and is ignored by Git.
 
 ## Run The Static Demo
 
@@ -54,7 +49,7 @@ Open:
 http://localhost:5177
 ```
 
-Paste a CORS-enabled furni SWF URL, choose render options, and click `Render`. The page fetches SWF bytes in the browser, passes them to the TeaVM parser, renders to Canvas, and exports PNG.
+Paste a CORS-enabled furni SWF URL, choose render options, and click `Render`. The page fetches SWF bytes in the browser, passes them to the TeaVM parser, and exports PNG by default or animated GIF when `gif: true` is selected.
 
 ## JavaScript API
 
@@ -74,15 +69,62 @@ document.body.append(result.canvas);
 const png = await result.blob();
 ```
 
-`result.blob()` returns a browser `Blob` containing the rendered PNG bytes. Use it when you want to upload the PNG, download it, or create an object URL.
+PNG is the default output. `result.mime` is `image/png`, `result.canvas` contains the rendered pixels, and `result.blob()` returns a browser `Blob` containing the PNG bytes.
 
-To show the render in an `<img>` using a base64 data URL:
+To paint PNG output into an existing canvas:
+
+```js
+const canvas = document.querySelector("#preview");
+const result = await chroma.renderFromUrl("https://example.com/hof_furni/chair.swf", {
+  state: 0,
+  direction: 2
+}, canvas);
+
+console.log(result.canvas === canvas); // true
+```
+
+To show the PNG in a normal `<img>`:
 
 ```js
 const img = document.createElement("img");
-img.src = result.dataUrl();
+img.src = await result.dataUrl();
 document.body.append(img);
 ```
+
+To render an animated GIF, pass `gif: true`:
+
+```js
+const result = await chroma.renderFromUrl("https://example.com/hof_furni/rare_dragonlamp.swf", {
+  state: 1,
+  direction: 4,
+  color: 0,
+  crop: true,
+  canvas: "transparent",
+  gif: true
+});
+
+console.log(result.mime);      // "image/gif"
+console.log(result.isAnimated); // true when the selected state has multiple frames
+```
+
+Use an `<img>` for animated GIF playback:
+
+```js
+const img = document.createElement("img");
+img.src = await result.dataUrl();
+document.body.append(img);
+```
+
+Or use an object URL:
+
+```js
+const blob = await result.blob();
+const img = document.createElement("img");
+img.src = URL.createObjectURL(blob);
+document.body.append(img);
+```
+
+`result.canvas` is still populated for GIF results, but a canvas cannot play an animated GIF by itself. It is useful only as a first-frame/static preview. Use `result.blob()` or `result.dataUrl()` with an `<img>` when you want the animation.
 
 You can also provide SWF bytes directly:
 
@@ -102,75 +144,7 @@ Supported first-release options mirror the server endpoint where applicable:
 - `shadow`
 - `canvas`
 - `icon`
-- `gif` is accepted for endpoint compatibility and ignored; the browser release renders PNG output.
-
-## Smoke Tests
-
-Check the browser JavaScript syntax directly:
-
-```powershell
-node --check web\dist\chroma4j.js
-node --check web\dist\main.js
-```
-
-Check that the complete `web/dist` release has non-empty static/WASM artifacts, valid browser JavaScript syntax, and a loadable TeaVM parser:
-
-```powershell
-.\gradlew.bat :chroma-wasm:verifyWasmDist
-```
-
-You can also run the runtime smoke check directly:
-
-```powershell
-node -e "const fs=require('fs'); const runtime=fs.readFileSync('web/dist/wasm-gc/chroma-wasm.wasm-runtime.js','utf8'); (0,eval)(runtime); (async()=>{ const teavm=await globalThis.TeaVM.wasmGC.load('web/dist/wasm-gc/chroma-wasm.wasm'); const result=JSON.parse(teavm.exports.parseSwfBase64(Buffer.from('not-a-swf').toString('base64'), 'bad')); console.log(result.ok === false); })().catch(e=>{ console.error(e); process.exit(1); });"
-```
-
-Expected output:
-
-```text
-true
-```
-
-Check static serving:
-
-```powershell
-python -m http.server 5177 --directory web/dist
-Invoke-WebRequest -Uri http://localhost:5177 -UseBasicParsing | Select-Object -ExpandProperty StatusCode
-Invoke-WebRequest -Uri http://localhost:5177/wasm-gc/chroma-wasm.wasm -UseBasicParsing | Select-Object -ExpandProperty StatusCode
-```
-
-Expected output for each request:
-
-```text
-200
-```
-
-For visual validation, use a known CORS-enabled furni SWF URL in the demo and confirm the preview canvas renders non-empty pixels before downloading PNG.
-
-## C# Parity Checks
-
-The C# project is the rendering source of truth. Use the parity runner to render selected SWFs through C# and Java, then compare PNG pixels:
-
-```powershell
-.\tools\parity\Compare-ChromaParity.ps1 -CSharpRoot C:\SourceControl\Chroma
-```
-
-To include the browser/TeaVM path, install the local automation dependency and pass `-IncludeWasm`:
-
-```powershell
-npm install --no-save playwright-core
-.\tools\parity\Compare-ChromaParity.ps1 -CSharpRoot C:\SourceControl\Chroma -IncludeWasm
-```
-
-The runner downloads its SWF fixtures into `build/parity`, builds a temporary C# harness against `C:\SourceControl\Chroma\Chroma\Chroma.csproj`, renders the same options with `chroma-lib`, and reports pixel deltas. A passing row has `DifferingPixels = 0`.
-
-Current parity-sensitive fixtures include:
-
-- `rare_dragonlamp`, state `0` directions `0`, `2`, and `4`, state `1` directions `0` and `4`, omitted browser defaults for `state=1`, plus invalid-direction fallback, which must be exact.
-- `rare_dragonlamp`, small render, icon render including nonzero requested direction, ignored `gif` option, shadow render, background render, no-crop colored canvas render including explicit empty canvas, short HTML hex, invalid leading-hash fallback, and endpoint-style `state` / `bg` / case-sensitive `crop=True` normalization.
-- `rare_parasol`, state `1`, direction `4`, which covers translucent alpha blending and final crop/export behavior.
-- `rare_parasol`, state `1`, direction `4`, with shadows enabled.
-- `throne`, `club_sofa`, `rare_hammock`, `rare_icecream`, `rare_icecream_campaign`, `doorB`, and `rare_fountain` to broaden direction, small, WASM `s` alias, case-sensitive `small=True`, color, shadow, endpoint-style color/rotation normalization including valid rotation override, stateful furni, max-state fallback such as `state=99`, and simple static furni coverage.
+- `gif`: `false` by default for PNG output; `true` returns GIF bytes when the selected state has animation frames.
 
 ## Build The Spring Webapp
 
