@@ -1,4 +1,4 @@
-import { loadChroma4j } from "./chroma4j.js?v=ink-add-20260524";
+import { loadChroma4j } from "./chroma4j.js?v=ink-add-alpha-20260524";
 
 const controls = {
   url: document.getElementById("swf-url"),

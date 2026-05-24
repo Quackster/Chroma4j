@@ -1,5 +1,5 @@
 let teavmInstancePromise;
-const BUILD_VERSION = "ink-add-20260524";
+const BUILD_VERSION = "ink-add-alpha-20260524";
 
 export async function loadChroma4j(options = {}) {
   await ensureTeaVm(options.basePath || ".");
@@ -124,7 +124,9 @@ function collectRenderAssets(sprite, assetsXml, visualizationXml, images, option
       ink: layerInfo.ink,
       alpha: layerInfo.alpha,
       color: colorLayer ? attr(colorLayer, "color") : "",
-      shadow: name.includes("_sd_")
+      shadow: name.includes("_sd_"),
+      background: options.background,
+      canvas: options.canvas
     };
   }).filter(Boolean);
 
@@ -301,10 +303,14 @@ function drawAsset(ctx, canvas, asset) {
   if (asset.shadow) applyOpacity(imageData, 0.2);
 
   if (asset.ink === "ADD" || asset.ink === "33") {
-    drawAdd(ctx, imageData, x, y);
+    drawAdd(ctx, imageData, x, y, isTransparentCanvas(asset));
   } else {
     drawNormal(ctx, imageData, x, y);
   }
+}
+
+function isTransparentCanvas(asset) {
+  return !asset.background && parseCanvasColor(asset.canvas).a === 0;
 }
 
 function drawNormal(ctx, source, x, y) {
@@ -501,7 +507,7 @@ function adler32(bytes) {
   return ((b << 16) | a) >>> 0;
 }
 
-function drawAdd(ctx, source, x, y) {
+function drawAdd(ctx, source, x, y, preserveDestinationAlpha) {
   const startX = Math.max(0, x);
   const startY = Math.max(0, y);
   const endX = Math.min(ctx.canvas.width, x + source.width);
@@ -516,16 +522,24 @@ function drawAdd(ctx, source, x, y) {
       const sourceIndex = ((startY - y + row) * source.width + (startX - x + col)) * 4;
       const targetIndex = (row * width + col) * 4;
       if (source.data[sourceIndex + 3] === 0) continue;
-      const sourceAlpha = source.data[sourceIndex + 3];
       const bgAlpha = bg.data[targetIndex + 3];
-      const alpha = blendNormalAlpha(sourceAlpha, bgAlpha);
-      const r = blendAddChannel(source.data[sourceIndex], sourceAlpha, bg.data[targetIndex], bgAlpha, alpha);
-      const g = blendAddChannel(source.data[sourceIndex + 1], sourceAlpha, bg.data[targetIndex + 1], bgAlpha, alpha);
-      const b = blendAddChannel(source.data[sourceIndex + 2], sourceAlpha, bg.data[targetIndex + 2], bgAlpha, alpha);
-      bg.data[targetIndex] = r;
-      bg.data[targetIndex + 1] = g;
-      bg.data[targetIndex + 2] = b;
-      bg.data[targetIndex + 3] = alpha;
+      if (preserveDestinationAlpha) {
+        if (bgAlpha === 0) continue;
+        bg.data[targetIndex] = clampChannel(bg.data[targetIndex] + source.data[sourceIndex]);
+        bg.data[targetIndex + 1] = clampChannel(bg.data[targetIndex + 1] + source.data[sourceIndex + 1]);
+        bg.data[targetIndex + 2] = clampChannel(bg.data[targetIndex + 2] + source.data[sourceIndex + 2]);
+        bg.data[targetIndex + 3] = bgAlpha;
+      } else {
+        const sourceAlpha = source.data[sourceIndex + 3];
+        const alpha = blendNormalAlpha(sourceAlpha, bgAlpha);
+        const r = blendAddChannel(source.data[sourceIndex], sourceAlpha, bg.data[targetIndex], bgAlpha, alpha);
+        const g = blendAddChannel(source.data[sourceIndex + 1], sourceAlpha, bg.data[targetIndex + 1], bgAlpha, alpha);
+        const b = blendAddChannel(source.data[sourceIndex + 2], sourceAlpha, bg.data[targetIndex + 2], bgAlpha, alpha);
+        bg.data[targetIndex] = r;
+        bg.data[targetIndex + 1] = g;
+        bg.data[targetIndex + 2] = b;
+        bg.data[targetIndex + 3] = alpha;
+      }
     }
   }
   ctx.putImageData(bg, startX, startY);
@@ -540,7 +554,7 @@ function blendAddChannel(fg, fgAlpha, bg, bgAlpha, alpha) {
   const blendWeight = backgroundAlpha * sourceAlpha;
   const backgroundWeight = backgroundAlpha - blendWeight;
   const sourceWeight = sourceAlpha - blendWeight;
-  return Math.max(0, Math.min(255, Math.round((bg * backgroundWeight + fg * sourceWeight + blended * blendWeight) / outAlpha)));
+  return clampChannel(Math.round((bg * backgroundWeight + fg * sourceWeight + blended * blendWeight) / outAlpha));
 }
 
 function applyTint(imageData, color, alpha) {

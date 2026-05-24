@@ -525,7 +525,7 @@ public class ChromaFurniture {
                 
                 if ("ADD".equals(asset.getInk()) || "33".equals(asset.getInk())) {
                     // Add Pin (33): Add RGB values and clamp to 255
-                    applyAddPinBlending(canvas, image, x, y);
+                    applyAddPinBlending(canvas, image, x, y, isTransparentCanvas());
                 } else {
                     applyNormalBlending(canvas, image, x, y);
                 }
@@ -660,6 +660,10 @@ public class ChromaFurniture {
         return Math.max(0, Math.min(255, value));
     }
 
+    private boolean isTransparentCanvas() {
+        return !this.renderBackground && hexToColor(this.renderCanvasColour).getAlpha() == 0;
+    }
+
     /**
      * Applies Add Pin (33) blending mode: Adds RGB values of foreground to background
      * and clamps each component to 255 (no overflow allowed).
@@ -669,7 +673,7 @@ public class ChromaFurniture {
      * @param x The x position to draw the foreground image
      * @param y The y position to draw the foreground image
      */
-    private void applyAddPinBlending(BufferedImage canvas, BufferedImage foreground, int x, int y) {
+    private void applyAddPinBlending(BufferedImage canvas, BufferedImage foreground, int x, int y, boolean preserveDestinationAlpha) {
         int canvasWidth = canvas.getWidth();
         int canvasHeight = canvas.getHeight();
         int fgWidth = foreground.getWidth();
@@ -699,10 +703,25 @@ public class ChromaFurniture {
                     continue;
                 }
                 
-                int alpha = blendNormalAlpha(fgColor.getAlpha(), bgColor.getAlpha());
-                int r = blendAddChannel(fgColor.getRed(), fgColor.getAlpha(), bgColor.getRed(), bgColor.getAlpha(), alpha);
-                int g = blendAddChannel(fgColor.getGreen(), fgColor.getAlpha(), bgColor.getGreen(), bgColor.getAlpha(), alpha);
-                int b = blendAddChannel(fgColor.getBlue(), fgColor.getAlpha(), bgColor.getBlue(), bgColor.getAlpha(), alpha);
+                int alpha;
+                int r;
+                int g;
+                int b;
+                if (preserveDestinationAlpha) {
+                    alpha = bgColor.getAlpha();
+                    if (alpha == 0) {
+                        continue;
+                    }
+
+                    r = clampChannel(bgColor.getRed() + fgColor.getRed());
+                    g = clampChannel(bgColor.getGreen() + fgColor.getGreen());
+                    b = clampChannel(bgColor.getBlue() + fgColor.getBlue());
+                } else {
+                    alpha = blendNormalAlpha(fgColor.getAlpha(), bgColor.getAlpha());
+                    r = blendAddChannel(fgColor.getRed(), fgColor.getAlpha(), bgColor.getRed(), bgColor.getAlpha(), alpha);
+                    g = blendAddChannel(fgColor.getGreen(), fgColor.getAlpha(), bgColor.getGreen(), bgColor.getAlpha(), alpha);
+                    b = blendAddChannel(fgColor.getBlue(), fgColor.getAlpha(), bgColor.getBlue(), bgColor.getAlpha(), alpha);
+                }
                 
                 Color blendedColor = new Color(r, g, b, alpha);
                 canvas.setRGB(cx, cy, blendedColor.getRGB());
