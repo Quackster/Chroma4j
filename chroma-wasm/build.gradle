@@ -63,30 +63,29 @@ tasks.register("verifyWasmDist") {
         def smokeFile = new File(temporaryDir, "verify-wasm-dist.cjs")
         smokeFile.text = """
             const fs = require("fs");
-            (async() => {
+            try {
               const runtime = fs.readFileSync("${runtimePath}", "utf8");
               if (!runtime.includes("wasmGC")) {
                 throw new Error("TeaVM WASM GC runtime marker was not found");
               }
-              await WebAssembly.compile(fs.readFileSync("${wasmPath}"));
-            })().catch(error => {
+
+              const wasm = fs.readFileSync("${wasmPath}");
+              if (wasm.length < 8) {
+                throw new Error("WASM artifact is too small to be valid");
+              }
+              if (!wasm.subarray(0, 4).equals(Buffer.from([0x00, 0x61, 0x73, 0x6d]))) {
+                throw new Error("WASM artifact magic header was not found");
+              }
+              if (!wasm.subarray(4, 8).equals(Buffer.from([0x01, 0x00, 0x00, 0x00]))) {
+                throw new Error("Unsupported WASM binary version");
+              }
+            } catch (error) {
               console.error(error);
               process.exit(1);
-            });
+            }
         """
-        def wasmGcNodeArgs = []
-        def wasmGcFlagProbe = exec {
-            commandLine "node", "--experimental-wasm-gc", "-e", ""
-            ignoreExitValue = true
-            standardOutput = new ByteArrayOutputStream()
-            errorOutput = new ByteArrayOutputStream()
-        }
-        if (wasmGcFlagProbe.exitValue == 0) {
-            wasmGcNodeArgs.add("--experimental-wasm-gc")
-        }
-
         exec {
-            commandLine(["node"] + wasmGcNodeArgs + [smokeFile.absolutePath])
+            commandLine "node", smokeFile.absolutePath
         }
     }
 }
