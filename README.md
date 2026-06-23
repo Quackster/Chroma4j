@@ -182,6 +182,39 @@ Supported first-release options mirror the server endpoint where applicable:
 - `format`: optional `"png"`, `"gif"`, or `"apng"` selector. `apng` wins if both animated formats are requested.
 - `loop`: `true` by default for animated output; set `false` to emit a non-looping GIF or APNG.
 
+## Render With The Java Library
+
+Use `chroma-lib` directly when you want to render from a normal JVM application instead of the browser WASM build or Spring webapp. The main entry point is `com.quackster.chroma.ChromaFurniture`.
+
+```java
+import com.quackster.chroma.ChromaFurniture;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public class RenderFurniture {
+    public static void main(String[] args) throws Exception {
+        ChromaFurniture furni = new ChromaFurniture(
+                "swfs/hof_furni/chair.swf",
+                false,         // small furni
+                0,             // state
+                2,             // direction
+                -1,            // colour id, or -1 for default
+                true,          // render shadows
+                false,         // render bg.png background
+                "transparent", // canvas colour
+                true,          // crop image
+                false          // render icon
+        );
+
+        furni.run();
+        Files.write(Path.of("chair.png"), furni.createImage());
+    }
+}
+```
+
+`run()` parses the SWF and writes extracted assets under `furni_export/<sprite>`, so the process needs write access to the working directory. For animated output, call `createGif(true)` or `createApng(true)` after `run()` and write the returned bytes to a `.gif` or `.png` file.
+
 ## Build The Spring Webapp
 
 The existing server-side renderer can still be built with:
