@@ -74,8 +74,19 @@ tasks.register("verifyWasmDist") {
               process.exit(1);
             });
         """
+        def wasmGcNodeArgs = []
+        def wasmGcFlagProbe = exec {
+            commandLine "node", "--experimental-wasm-gc", "-e", ""
+            ignoreExitValue = true
+            standardOutput = new ByteArrayOutputStream()
+            errorOutput = new ByteArrayOutputStream()
+        }
+        if (wasmGcFlagProbe.exitValue == 0) {
+            wasmGcNodeArgs.add("--experimental-wasm-gc")
+        }
+
         exec {
-            commandLine "node", smokeFile.absolutePath
+            commandLine(["node"] + wasmGcNodeArgs + [smokeFile.absolutePath])
         }
     }
 }

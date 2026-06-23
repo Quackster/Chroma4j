@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-latest
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    name: Build release dist
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and verify
+        run: bash ./gradlew clean build
+
+      - name: Package web dist
+        run: |
+          mkdir -p build/release
+          tar -czf build/release/chroma4j-latest-web-dist.tar.gz -C web/dist .
+          zip -r build/release/chroma4j-latest-web-dist.zip web/dist
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chroma4j-latest-web-dist
+          path: |
+            build/release/chroma4j-latest-web-dist.tar.gz
+            build/release/chroma4j-latest-web-dist.zip
+          if-no-files-found: error
+
+      - name: Publish latest GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: latest
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          gh release delete "${RELEASE_TAG}" --yes --cleanup-tag || true
+          git push origin ":refs/tags/${RELEASE_TAG}" || true
+
+          if git rev-parse --verify "refs/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+            git tag -d "${RELEASE_TAG}"
+          fi
+
+          git tag -f "${RELEASE_TAG}" "${GITHUB_SHA}"
+          git push --force origin "refs/tags/${RELEASE_TAG}"
+
+          gh release create "${RELEASE_TAG}" \
+            build/release/chroma4j-latest-web-dist.tar.gz \
+            build/release/chroma4j-latest-web-dist.zip \
+            --title "Chroma4j Latest" \
+            --notes "Latest web dist built from ${GITHUB_SHA} on $(date -u +'%Y-%m-%d %H:%M:%S UTC')."
