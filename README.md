@@ -14,7 +14,7 @@ The browser build fetches SWFs directly from the browser, so HTTP SWF URLs must 
 
 ## Preview
 
-![](https://cdn.discordapp.com/attachments/531015659027562505/1508006401266417774/chrome_l2fkwjOmeK.gif?ex=6a13f7e7&is=6a12a667&hm=ca45eb9bbc1dbf15e7ba1112f65e19003513985bdc66341cc3b27d70096737ec&)
+<img width="1275" height="863" alt="chrome_2myBLVlekx" src="https://github.com/user-attachments/assets/d037fc41-6633-4736-8283-35b3ace100f7" />
 
 ## Build The WASM Release
 
